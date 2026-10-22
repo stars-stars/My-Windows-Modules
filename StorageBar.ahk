@@ -1,0 +1,189 @@
+#Requires AutoHotkey v2.0
+#SingleInstance Force
+Persistent
+
+; ストレージの空き容量をタスクバーの左端に常時表示する
+
+; ===== 設定 =====
+UPDATE_MS  := 30000   ; 容量を取り直す間隔
+WATCH_MS   := 500     ; 位置合わせ・最前面維持の間隔
+WARN_PCT   := 20      ; 空き率がこれ未満ならオレンジ
+DANGER_PCT := 10      ; 空き率がこれ未満なら赤
+BLOCK_W    := 116     ; 1ドライブ分の幅 (96dpi 基準)
+GAP        := 8       ; タスクバー左端からの余白 (96dpi 基準)
+LINK_PATH  := A_Startup "\StorageBar.lnk"
+
+scale  := A_ScreenDPI / 96
+drives := ""
+bg     := "202020"   ; タスクバーから拾った背景色
+bar    := ""
+blocks := []
+
+TraySetIcon("shell32.dll", 9)
+BuildMenu()
+Refresh()
+SetTimer(Refresh, UPDATE_MS)
+SetTimer(Watch, WATCH_MS)
+
+; ===== 容量の更新 =====
+Refresh(*) {
+    global drives
+    newDrives := DriveGetList("FIXED")
+    if newDrives != drives {
+        drives := newDrives
+        BuildGui()
+    }
+
+    tip := ""
+    for b in blocks {
+        try {
+            free  := DriveGetSpaceFree(b.drive ":\")
+            total := DriveGetCapacity(b.drive ":\")
+        } catch {
+            b.text.Value := b.drive ": --"
+            b.prog.Value := 0
+            b.pct := 100
+            tip .= b.drive ": 取得失敗`n"
+            continue
+        }
+        b.pct := total ? free / total * 100 : 0
+        b.text.Value := Format("{}: {} / {} GB", b.drive, Gb(free), Gb(total))
+        b.prog.Value := Round(100 - b.pct)  ; バーは使用率
+        tip .= Format("{}:  空き {} GB / {} GB ({:.1f}%)`n", b.drive, Gb(free), Gb(total), b.pct)
+    }
+    A_IconTip := RTrim(tip, "`n")
+    ApplyColors()
+    Watch()
+}
+
+; 空き率に応じて文字とバーの色を変える
+ApplyColors() {
+    c := Colors()
+    bar.BackColor := bg
+    for b in blocks {
+        level := b.pct < DANGER_PCT ? c.danger : b.pct < WARN_PCT ? c.warn : ""
+        b.text.SetFont("c" (level || c.fg))
+        b.prog.Opt("c" (level || c.ok) " Background" c.track)
+    }
+}
+
+; MB → GB 表記（エクスプローラーと同じ 1024 進）
+Gb(mb) {
+    gb := mb / 1024
+    return gb < 100 ? Format("{:.1f}", gb) : Round(gb)
+}
+
+; 背景の明るさで文字色の組を選ぶ（テーマ設定ではなく実際の色で判断）
+Colors() {
+    n := Integer("0x" bg)
+    lum := 0.299 * (n >> 16 & 0xFF) + 0.587 * (n >> 8 & 0xFF) + 0.114 * (n & 0xFF)
+    if lum > 140
+        return {fg: "1A1A1A", track: "C8C8C8", ok: "0067C0", warn: "CA5010", danger: "C42B1C"}
+    return {fg: "FFFFFF", track: "454545", ok: "4CC2FF", warn: "FFB900", danger: "FF6060"}
+}
+
+; ===== 表示ウィンドウ =====
+BuildGui() {
+    global bar, blocks
+    if IsObject(bar)
+        bar.Destroy()
+    c := Colors()
+    ; WS_EX_NOACTIVATE: クリックしてもフォーカスを奪わない
+    bar := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +E0x08000000", "StorageBar")
+    bar.BackColor := bg
+    bar.MarginX := 0, bar.MarginY := 0
+    bar.SetFont("s9 c" c.fg, "Segoe UI")
+    bar.OnEvent("ContextMenu", (*) => A_TrayMenu.Show())
+
+    blocks := []
+    w := Round(BLOCK_W * scale)
+    pad := Round(10 * scale)
+    for i, d in StrSplit(drives) {
+        x := (i - 1) * w
+        t := bar.AddText(Format("x{} y{} w{} h{} Center", x, Round(4 * scale), w, Round(20 * scale)))
+        p := bar.AddProgress(Format("x{} y{} w{} h{} Smooth Background{}", x + pad, Round(27 * scale), w - pad * 2, Round(4 * scale), c.track))
+        t.OnEvent("DoubleClick", OpenPC)
+        blocks.Push({drive: d, text: t, prog: p, pct: 100})
+    }
+}
+
+; タスクバーに合わせて位置と背景色を直し、最前面に戻す
+Watch() {
+    global bg
+    if !IsObject(bar) || !blocks.Length
+        return
+    tb := WinExist("ahk_class Shell_TrayWnd")
+    if !tb || ShouldHide(tb) {
+        bar.Hide()
+        return
+    }
+    ; Explorer 再起動中や画面ロック中は失敗しうるので、その回は諦めて次の周期に任せる
+    try {
+        WinGetPos(&tx, &ty, &tw, &th, tb)
+        w := Round(BLOCK_W * scale) * blocks.Length
+        h := Round(36 * scale)
+        x := tx + Round(GAP * scale)
+        y := ty + (th - h) // 2
+        ; HWND_TOPMOST, SWP_NOACTIVATE | SWP_SHOWWINDOW
+        DllCall("SetWindowPos", "ptr", bar.Hwnd, "ptr", -1, "int", x, "int", y, "int", w, "int", h, "uint", 0x0050)
+
+        ; 左端の余白の色を拾って背景をなじませる
+        CoordMode("Pixel", "Screen")
+        col := SubStr(PixelGetColor(tx + Round(GAP * scale / 2), y + h // 2), 3)
+        if col != bg {
+            bg := col
+            ApplyColors()
+        }
+    }
+}
+
+; タスクバーが隠れている時や、全画面アプリが前面にある時は表示しない
+ShouldHide(tb) {
+    try {
+        WinGetPos(, &ty, , , tb)
+        if ty >= A_ScreenHeight - 4
+            return true
+        fg := WinExist("A")
+        if !fg || fg = tb
+            return false
+        cls := WinGetClass(fg)
+        if cls = "Progman" || cls = "WorkerW"
+            return false
+        WinGetPos(&x, &y, &w, &h, fg)
+        return x <= 0 && y <= 0 && w >= A_ScreenWidth && h >= A_ScreenHeight
+    }
+    return false
+}
+
+; ===== メニュー =====
+BuildMenu() {
+    m := A_TrayMenu
+    m.Delete()
+    m.Add("今すぐ更新", Refresh)
+    m.Add("PCを開く", OpenPC)
+    m.Add()
+    m.Add("スタートアップに登録", ToggleStartup)
+    m.Add()
+    m.Add("終了", (*) => ExitApp())
+    m.Default := "PCを開く"
+    UpdateStartupCheck()
+}
+
+OpenPC(*) {
+    Run("explorer.exe shell:MyComputerFolder")
+}
+
+ToggleStartup(*) {
+    if FileExist(LINK_PATH)
+        FileDelete(LINK_PATH)
+    else
+        FileCreateShortcut(A_AhkPath, LINK_PATH, A_ScriptDir, '"' A_ScriptFullPath '"')
+    UpdateStartupCheck()
+}
+
+UpdateStartupCheck() {
+    if FileExist(LINK_PATH)
+        A_TrayMenu.Check("スタートアップに登録")
+    else
+        A_TrayMenu.Uncheck("スタートアップに登録")
+}
