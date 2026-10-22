@@ -6,7 +6,8 @@ Persistent
 
 ; ===== 設定 =====
 UPDATE_MS  := 30000   ; 容量を取り直す間隔
-WATCH_MS   := 500     ; 位置合わせ・最前面維持の間隔
+WATCH_MS   := 1000    ; 位置合わせ・最前面維持の間隔
+COLOR_MS   := 10000   ; 背景色を拾い直す間隔 (PixelGetColor は 1 回 17ms 待たされるので低頻度にする)
 WARN_PCT   := 20      ; 空き率がこれ未満ならオレンジ
 DANGER_PCT := 10      ; 空き率がこれ未満なら赤
 BLOCK_W    := 116     ; 1ドライブ分の幅 (96dpi 基準)
@@ -22,8 +23,10 @@ blocks := []
 TraySetIcon("shell32.dll", 9)
 BuildMenu()
 Refresh()
+SampleBg()
 SetTimer(Refresh, UPDATE_MS)
 SetTimer(Watch, WATCH_MS)
+SetTimer(SampleBg, COLOR_MS)
 
 ; ===== 容量の更新 =====
 Refresh(*) {
@@ -107,9 +110,8 @@ BuildGui() {
     }
 }
 
-; タスクバーに合わせて位置と背景色を直し、最前面に戻す
+; タスクバーに合わせて位置を直し、最前面に戻す
 Watch() {
-    global bg
     if !IsObject(bar) || !blocks.Length
         return
     tb := WinExist("ahk_class Shell_TrayWnd")
@@ -126,8 +128,25 @@ Watch() {
         y := ty + (th - h) // 2
         ; HWND_TOPMOST, SWP_NOACTIVATE | SWP_SHOWWINDOW
         DllCall("SetWindowPos", "ptr", bar.Hwnd, "ptr", -1, "int", x, "int", y, "int", w, "int", h, "uint", 0x0050)
+    }
+}
 
-        ; 左端の余白の色を拾って背景をなじませる
+; タスクバー左端の余白の色を拾って背景をなじませる
+; PixelGetColor は画面 DC の読み取りで DWM の合成待ちが入り 1 回 17ms ブロックするため、
+; 位置合わせとは分けて低頻度で呼ぶ（色が変わるのはテーマ・アクセント変更時だけ）
+SampleBg() {
+    global bg
+    if !IsObject(bar) || !blocks.Length
+        return
+    if !DllCall("IsWindowVisible", "ptr", bar.Hwnd)   ; 非表示中は拾っても意味がない
+        return
+    tb := WinExist("ahk_class Shell_TrayWnd")
+    if !tb
+        return
+    try {
+        WinGetPos(&tx, &ty, , &th, tb)
+        h := Round(36 * scale)
+        y := ty + (th - h) // 2
         CoordMode("Pixel", "Screen")
         col := SubStr(PixelGetColor(tx + Round(GAP * scale / 2), y + h // 2), 3)
         if col != bg {
