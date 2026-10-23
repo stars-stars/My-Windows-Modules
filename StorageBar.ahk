@@ -19,6 +19,9 @@ drives := ""
 bg     := "202020"   ; タスクバーから拾った背景色
 bar    := ""
 blocks := []
+hideStreak := 0      ; 非表示判定が連続した回数
+evHooks    := []     ; SetWinEventHook のハンドル
+evCb       := 0      ; コールバックの参照（解放すると落ちるので保持する）
 
 TraySetIcon("shell32.dll", 9)
 BuildMenu()
@@ -27,6 +30,18 @@ SampleBg()
 SetTimer(Refresh, UPDATE_MS)
 SetTimer(Watch, WATCH_MS)
 SetTimer(SampleBg, COLOR_MS)
+
+; 前面ウィンドウが切り替わる瞬間にタスクバーが z 順で持ち上げられてバーが隠れるため、
+; 1 秒周期を待たずにその場で押し戻す（ポーリングは取りこぼし用の保険として残す）
+evCb := CallbackCreate(OnWinEvent, , 7)
+; WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+for ev in [0x0003, 0x0016, 0x0017] {   ; FOREGROUND, MINIMIZESTART, MINIMIZEEND
+    h := DllCall("SetWinEventHook", "uint", ev, "uint", ev, "ptr", 0, "ptr", evCb
+        , "uint", 0, "uint", 0, "uint", 0x0002, "ptr")
+    if h
+        evHooks.Push(h)
+}
+OnExit(Cleanup)
 
 ; ===== 容量の更新 =====
 Refresh(*) {
@@ -112,13 +127,17 @@ BuildGui() {
 
 ; タスクバーに合わせて位置を直し、最前面に戻す
 Watch() {
+    global hideStreak
     if !IsObject(bar) || !blocks.Length
         return
     tb := WinExist("ahk_class Shell_TrayWnd")
+    ; 一時的な誤判定で消えないよう、非表示は判定が 2 回続いてから（表示側は即時）
     if !tb || ShouldHide(tb) {
-        bar.Hide()
+        if ++hideStreak >= 2
+            bar.Hide()
         return
     }
+    hideStreak := 0
     ; Explorer 再起動中や画面ロック中は失敗しうるので、その回は諦めて次の周期に任せる
     try {
         WinGetPos(&tx, &ty, &tw, &th, tb)
@@ -126,9 +145,29 @@ Watch() {
         h := Round(36 * scale)
         x := tx + Round(GAP * scale)
         y := ty + (th - h) // 2
+        ; Shell_TrayWnd の直上に挿入してはいけない (Win11 はその上にもう一枚 CoreWindow を重ねて
+        ; タスクバーを描くので、その下に潜って見えなくなる)。最前面の先頭に置き直す。
         ; HWND_TOPMOST, SWP_NOACTIVATE | SWP_SHOWWINDOW
         DllCall("SetWindowPos", "ptr", bar.Hwnd, "ptr", -1, "int", x, "int", y, "int", w, "int", h, "uint", 0x0050)
     }
+}
+
+; イベントは連続して飛んでくるので、ワンショットタイマーで 1 回に畳む
+; SetTimer は関数ごとに 1 本なので、Watch 本体ではなく別関数で張る
+; (Watch に直接張ると WATCH_MS の定期実行がワンショットに置き換わって止まる)
+OnWinEvent(hook, event, hwnd, obj, child, thread, time) {
+    SetTimer(Nudge, -30)
+}
+
+Nudge() {
+    Watch()
+}
+
+Cleanup(*) {
+    for h in evHooks
+        DllCall("UnhookWinEvent", "ptr", h)
+    if evCb
+        CallbackFree(evCb)
 }
 
 ; タスクバー左端の余白の色を拾って背景をなじませる
@@ -163,10 +202,19 @@ ShouldHide(tb) {
         if ty >= A_ScreenHeight - 4
             return true
         fg := WinExist("A")
-        if !fg || fg = tb
+        if !fg || fg = tb || fg = bar.Hwnd
             return false
         cls := WinGetClass(fg)
         if cls = "Progman" || cls = "WorkerW"
+            return false
+        ; 最大化・最小化したウィンドウは全画面ではない
+        ; (Win11 の最大化は不可視の枠のぶん画面より大きく見えるので、位置とサイズでは区別できない)
+        if WinGetMinMax(fg)
+            return false
+        ; 生成直後や DWM で cloaked なウィンドウは、まだ何も描いていないので無視する
+        if !DllCall("IsWindowVisible", "ptr", fg)
+            return false
+        if !DllCall("dwmapi\DwmGetWindowAttribute", "ptr", fg, "uint", 14, "uint*", &cloaked := 0, "uint", 4) && cloaked
             return false
         WinGetPos(&x, &y, &w, &h, fg)
         return x <= 0 && y <= 0 && w >= A_ScreenWidth && h >= A_ScreenHeight
