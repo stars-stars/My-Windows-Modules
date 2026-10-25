@@ -28,6 +28,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
 | [`ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
 | [`StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブ空き容量を常時表示 | AutoHotkey v2 |
+| [`IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`PngToJpg.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
 | [`PngToEps.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
 
@@ -170,6 +171,17 @@ AutoHotkey v2 のスクリプトです。固定ドライブの空き容量をタ
 - トレイメニューからスタートアップ登録（`StorageBar.lnk`）が可能
 
 閾値や幅などはスクリプト冒頭の「設定」セクションで変更できます。
+
+### `IMEKeySwitch.ahk`
+
+AutoHotkey v2 のスクリプトです。日本語キーボードの変換 / 無変換キーを、
+IME のトグルではなく ON / OFF 専用キーとして割り当て直します。
+
+- 変換キー → IME ON（ひらがな入力）
+- 無変換キー → IME OFF（半角英数字）
+- トレイメニューからスタートアップ登録（`IMEKeySwitch.lnk`）が可能
+
+現在の IME 状態を気にせず押せるので、変換ミスを戻す操作が減ります。
 
 ### `PngToJpg.ps1` / `PngToEps.ps1`
 
