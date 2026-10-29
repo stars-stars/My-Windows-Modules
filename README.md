@@ -27,7 +27,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`password.ps1`](#passwordps1) | 接続中の Wi-Fi の SSID とパスワードを表示 | 管理者権限 |
 | [`capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
 | [`ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
-| [`StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブ空き容量を常時表示 | AutoHotkey v2 |
+| [`StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`PngToJpg.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
 | [`PngToEps.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
@@ -162,15 +162,26 @@ LAN 上の機器の IP を探すときに使います。
 
 ### `StorageBar.ahk`
 
-AutoHotkey v2 のスクリプトです。固定ドライブの空き容量をタスクバーの左端に
+AutoHotkey v2 のスクリプトです。固定ドライブの容量をタスクバーの左端に
 常時表示します。
 
+1 ドライブにつき 1 ブロックで、上段に数値、下段に使用率バーが出ます。
+
+```
+C: 123 / 456 GB   空き 333 GB
+████████████░░░░░░░░░░░░░░░░
+```
+
+- 上段左が「使用量 / 全容量」、右が残り容量（エクスプローラーと同じ 1024 進）
 - 30 秒ごとに容量を再取得、1 秒ごとに位置合わせと最前面維持
-- 空き率が 20% 未満でオレンジ、10% 未満で赤に変色
+- 空き率が 20% 未満でオレンジ、10% 未満で赤に変色（残り容量とバー）
 - タスクバーの背景色を拾って馴染ませる
+- トレイアイコンにカーソルを当てると全ドライブの内訳と空き率を表示
+- ダブルクリックで「PC」を開く
 - トレイメニューからスタートアップ登録（`StorageBar.lnk`）が可能
 
-閾値や幅などはスクリプト冒頭の「設定」セクションで変更できます。
+閾値や 1 ドライブ分の幅（`BLOCK_W`）はスクリプト冒頭の「設定」セクションで
+変更できます。文字が切れる・余りすぎる場合はここを調整してください。
 
 ### `IMEKeySwitch.ahk`
 

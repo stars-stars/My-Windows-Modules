@@ -10,7 +10,7 @@ WATCH_MS   := 1000    ; 位置合わせ・最前面維持の間隔
 COLOR_MS   := 10000   ; 背景色を拾い直す間隔 (PixelGetColor は 1 回 17ms 待たされるので低頻度にする)
 WARN_PCT   := 20      ; 空き率がこれ未満ならオレンジ
 DANGER_PCT := 10      ; 空き率がこれ未満なら赤
-BLOCK_W    := 116     ; 1ドライブ分の幅 (96dpi 基準)
+BLOCK_W    := 180     ; 1ドライブ分の幅 (96dpi 基準)
 GAP        := 8       ; タスクバー左端からの余白 (96dpi 基準)
 LINK_PATH  := A_Startup "\StorageBar.lnk"
 
@@ -58,16 +58,20 @@ Refresh(*) {
             free  := DriveGetSpaceFree(b.drive ":\")
             total := DriveGetCapacity(b.drive ":\")
         } catch {
-            b.text.Value := b.drive ": --"
+            b.used.Value := b.drive ": --"
+            b.free.Value := ""
             b.prog.Value := 0
             b.pct := 100
             tip .= b.drive ": 取得失敗`n"
             continue
         }
         b.pct := total ? free / total * 100 : 0
-        b.text.Value := Format("{}: {} / {} GB", b.drive, Gb(free), Gb(total))
+        ; 左に「使用量 / 全容量」、右に残り容量を出す
+        b.used.Value := Format("{}: {} / {} GB", b.drive, Gb(total - free), Gb(total))
+        b.free.Value := Format("空き {} GB", Gb(free))
         b.prog.Value := Round(100 - b.pct)  ; バーは使用率
-        tip .= Format("{}:  空き {} GB / {} GB ({:.1f}%)`n", b.drive, Gb(free), Gb(total), b.pct)
+        tip .= Format("{}:  使用 {} GB / {} GB　空き {} GB ({:.1f}%)`n"
+            , b.drive, Gb(total - free), Gb(total), Gb(free), b.pct)
     }
     A_IconTip := RTrim(tip, "`n")
     ApplyColors()
@@ -80,7 +84,9 @@ ApplyColors() {
     bar.BackColor := bg
     for b in blocks {
         level := b.pct < DANGER_PCT ? c.danger : b.pct < WARN_PCT ? c.warn : ""
-        b.text.SetFont("c" (level || c.fg))
+        ; 警告は残り容量とバーだけに出す（使用量側は常に通常色）
+        b.used.SetFont("c" c.fg)
+        b.free.SetFont("c" (level || c.fg))
         b.prog.Opt("c" (level || c.ok) " Background" c.track)
     }
 }
@@ -118,10 +124,16 @@ BuildGui() {
     pad := Round(10 * scale)
     for i, d in StrSplit(drives) {
         x := (i - 1) * w
-        t := bar.AddText(Format("x{} y{} w{} h{} Center", x, Round(4 * scale), w, Round(20 * scale)))
-        p := bar.AddProgress(Format("x{} y{} w{} h{} Smooth Background{}", x + pad, Round(27 * scale), w - pad * 2, Round(4 * scale), c.track))
-        t.OnEvent("DoubleClick", OpenPC)
-        blocks.Push({drive: d, text: t, prog: p, pct: 100})
+        inner  := w - pad * 2
+        usedW  := Round(inner * 0.58)        ; 左: 使用量 / 全容量
+        freeW  := inner - usedW              ; 右: 残り容量（少し小さい字で）
+        u := bar.AddText(Format("x{} y{} w{} h{} Left", x + pad, Round(5 * scale), usedW, Round(18 * scale)))
+        f := bar.AddText(Format("x{} y{} w{} h{} Right", x + pad + usedW, Round(7 * scale), freeW, Round(16 * scale)))
+        f.SetFont("s8")
+        p := bar.AddProgress(Format("x{} y{} w{} h{} Smooth Background{}", x + pad, Round(27 * scale), inner, Round(4 * scale), c.track))
+        u.OnEvent("DoubleClick", OpenPC)
+        f.OnEvent("DoubleClick", OpenPC)
+        blocks.Push({drive: d, used: u, free: f, prog: p, pct: 100})
     }
 }
 
