@@ -8,9 +8,11 @@
 ; そこで本当には消灯せず、全画面の黒いウィンドウを出して明るさを 0 にする。
 ; キーかマウスを操作すると元に戻る。
 
+LINK_PATH := A_Startup "\DisplayOff.lnk"
+
 ; トレイアイコン: 月マーク付きモニター（ディスプレイのスリープ）
 try TraySetIcon("imageres.dll", 97)
-A_IconTip := "DisplayOff`nWin + Backspace: 画面を暗転（ロックなし）"
+BuildMenu()
 
 ; フックを入れると A_TimeIdlePhysical が物理的な入力だけを数えるようになる
 InstallKeybdHook()
@@ -80,6 +82,32 @@ Restore() {
     if prevWin && WinExist(prevWin)
         try WinActivate(prevWin)
     blanked := false
+}
+
+; ===== メニュー =====
+BuildMenu() {
+    m := A_TrayMenu
+    m.Delete()
+    m.Add("スタートアップに登録", ToggleStartup)
+    m.Add()
+    m.Add("終了", (*) => ExitApp())
+    A_IconTip := "DisplayOff`nWin + Backspace: 画面を暗転（ロックなし）"
+    UpdateStartupCheck()
+}
+
+ToggleStartup(*) {
+    if FileExist(LINK_PATH)
+        FileDelete(LINK_PATH)
+    else
+        FileCreateShortcut(A_AhkPath, LINK_PATH, A_ScriptDir, '"' A_ScriptFullPath '"')
+    UpdateStartupCheck()
+}
+
+UpdateStartupCheck() {
+    if FileExist(LINK_PATH)
+        A_TrayMenu.Check("スタートアップに登録")
+    else
+        A_TrayMenu.Uncheck("スタートアップに登録")
 }
 
 ; 内蔵ディスプレイの明るさ（0-100）。取得できなければ空文字
