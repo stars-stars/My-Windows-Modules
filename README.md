@@ -29,6 +29,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
 | [`StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
+| [`DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
 | [`PngToJpg.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
 | [`PngToEps.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
 
@@ -193,6 +194,24 @@ IME のトグルではなく ON / OFF 専用キーとして割り当て直しま
 - トレイメニューからスタートアップ登録（`IMEKeySwitch.lnk`）が可能
 
 現在の IME 状態を気にせず押せるので、変換ミスを戻す操作が減ります。
+
+### `DisplayOff.ahk`
+
+AutoHotkey v2 のスクリプトです。`Win + Backspace` で画面を暗転します。
+
+モダンスタンバイ機（Surface Laptop 3 など）では、本当にディスプレイを消すとスリープと同じ扱いになり、
+サインイン設定が「毎回」だとロックされます。そこでこのスクリプトは本当には消灯せず、
+全画面の黒いウィンドウを出して明るさを 0 にします（ロックはかかりません）。
+
+- マウスかキーボードを操作すると、元の明るさとウィンドウに戻る
+- 復帰のために押したキーは黒いウィンドウが受け取るので、裏のアプリには入力されない
+- キーを離してから暗転するので、キーを離したときの入力ですぐには戻らない
+- トレイアイコンは月マーク付きのモニター（`imageres.dll` の 97 番）
+
+> 注意点
+> - バックライトは完全には消えません（明るさ 0 で黒を表示しているだけ）。省電力の効果は本当の消灯より小さくなります。
+> - 電源設定の「画面をオフにする」時間が来ると、Windows が本当に消灯してロックします。長く離れるときはこれで問題ありません。
+> - 明るさを変えられるのは内蔵ディスプレイだけです。外部モニターは黒い画面になるだけです。
 
 ### `PngToJpg.ps1` / `PngToEps.ps1`
 
