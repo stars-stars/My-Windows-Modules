@@ -32,7 +32,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`powershell/Rename-ByRegex.ps1`](#rename-byregexps1) | 正規表現によるファイル名の対話的一括リネーム | — |
 | [`powershell/Undo-RenameLog.ps1`](#undo-renamelogps1) | `Rename-ByRegex.ps1` のリネームをログから巻き戻す | — |
 | [`powershell/ssh-list.ps1`](#ssh-listps1) | SSH 接続先を GUI 一覧から選んで接続 | `ssh`, CSV |
-| [`powershell/Connect-AndroidWirelessDebugging.ps1`](#connect-androidwirelessdebuggingps1) | Android ワイヤレスデバッグの対話的ペアリング | `adb` |
+| [`powershell/Connect-AndroidWirelessDebugging.ps1`](#connect-androidwirelessdebuggingps1) | Android ワイヤレスデバッグの対話的ペアリング・接続（LAN / Tailscale） | `adb`（Tailscale 利用時は `tailscale`） |
 | [`powershell/send_ip_all.ps1`](#send_ip_allps1) | 同一サブネットを ping スキャンして稼働ホストを列挙 | PowerShell 7+ |
 | [`powershell/password.ps1`](#passwordps1) | 接続中の Wi-Fi の SSID とパスワードを表示 | 管理者権限 |
 | [`powershell/capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
@@ -119,16 +119,23 @@ MyServer,192.168.0.10,myuser,22
 
 ### `Connect-AndroidWirelessDebugging.ps1`
 
-Android 11 以降のワイヤレスデバッグ機能を使って `adb` で端末に接続します。
-ペアリングコードの入力から接続までを対話的に案内します。
+Android 11 以降のワイヤレスデバッグ機能を使って `adb` で端末にペアリング・接続します。
+同一 LAN 経由と Tailscale 経由の両方に対応しています。
 事前に端末側の開発者向けオプションで「ワイヤレスデバッグ」を有効にしてください。
 
-接続先 IP のデフォルト値は環境変数 `ANDROID_DEBUG_IP` から読み込みます。
-未設定の場合は毎回入力を求められます。
+- **LAN** … 「ワイヤレスデバッグ」画面に表示される IP を入力して接続します。
+- **Tailscale** … `tailscale status` から Android 端末を一覧表示して番号で選びます（手入力も可）。
+- `adb` は Android SDK の `platform-tools\adb.exe`（`ANDROID_HOME` / `ANDROID_SDK_ROOT` / `%LOCALAPPDATA%\Android\Sdk`）を優先し、なければ PATH 上のものを使います。
+- 接続用ポート → ペアリング用ポート → ペアリングコードの順に入力します。ペアリング用ポートを空欄にするとペアリングを省略し、接続だけ行います（ペアリング済みの端末向け）。
+- ペアリング・接続の前に TCP で到達性を確認し、届かない場合は確認ポイントを表示します。
+- 同じ IP の古いポートでの接続は自動で切断し、`adb get-state` で `device` になったことを確認します。
+- 接続に成功した IP は方式ごとに `%LOCALAPPDATA%\adb-pair\last-target.json` に保存され、次回の既定値になります。
+- どの入力プロンプトでも `q` で中断できます。失敗時は終了コード 1 を返します。
 
 ```powershell
-# デフォルト IP を永続化しておく（ユーザースコープ）
-[Environment]::SetEnvironmentVariable('ANDROID_DEBUG_IP', '192.168.0.20', 'User')
+Connect-AndroidWirelessDebugging.ps1                              # 方式を対話で選択
+Connect-AndroidWirelessDebugging.ps1 -Mode Tailscale              # Tailscale 経由
+Connect-AndroidWirelessDebugging.ps1 -Mode Lan -Ip 192.168.1.23   # IP を指定
 ```
 
 ### `send_ip_all.ps1`
