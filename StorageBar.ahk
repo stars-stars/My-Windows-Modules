@@ -8,8 +8,8 @@ Persistent
 UPDATE_MS  := 30000   ; 容量を取り直す間隔
 WATCH_MS   := 1000    ; 位置合わせ・最前面維持の間隔
 COLOR_MS   := 10000   ; 背景色を拾い直す間隔 (PixelGetColor は 1 回 17ms 待たされるので低頻度にする)
-WARN_PCT   := 20      ; 空き率がこれ未満ならオレンジ
-DANGER_PCT := 10      ; 空き率がこれ未満なら赤
+WARN_PCT   := 10      ; 空き率がこれ未満ならオレンジ
+DANGER_PCT := 6.5     ; 空き率がこれ未満なら赤
 BLOCK_W    := 180     ; 1ドライブ分の幅 (96dpi 基準)
 GAP        := 8       ; タスクバー左端からの余白 (96dpi 基準)
 LINK_PATH  := A_Startup "\StorageBar.lnk"
