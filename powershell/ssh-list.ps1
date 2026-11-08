@@ -2,7 +2,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # 接続先リスト（CSVから読み込み）
-$csvPath = Join-Path $PSScriptRoot "../data/machine_list.csv"
+$csvPath = Join-Path $PSScriptRoot "../../data/machine_list.csv"
 if (Test-Path $csvPath) {
     $sshTargets = Import-Csv -Path $csvPath -Encoding utf8
 } else {

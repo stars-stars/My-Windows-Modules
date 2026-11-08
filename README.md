@@ -1,7 +1,17 @@
 # powershell/bin
 
-Windows 環境で日常的に使っている PowerShell スクリプト群です。
+Windows 環境で日常的に使っている PowerShell / AutoHotkey スクリプト群です。
 単体で動くものが中心なので、使いたいものだけ個別に実行できます。
+
+## ディレクトリ構成
+
+```
+bin/
+├── powershell/   PowerShell スクリプト（.ps1）
+└── autohotkey/   AutoHotkey v2 スクリプト（.ahk）
+```
+
+`.ps1` をどこからでも名前で呼び出せるように、`powershell/` をユーザー PATH に追加しておくと便利です。
 
 ## 動作環境
 
@@ -19,19 +29,19 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 | ファイル | 概要 | 依存 |
 | --- | --- | --- |
-| [`Rename-ByRegex.ps1`](#rename-byregexps1) | 正規表現によるファイル名の対話的一括リネーム | — |
-| [`Undo-RenameLog.ps1`](#undo-renamelogps1) | 上記リネームをログから巻き戻す | — |
-| [`ssh-list.ps1`](#ssh-listps1) | SSH 接続先を GUI 一覧から選んで接続 | `ssh`, CSV |
-| [`Connect-AndroidWirelessDebugging.ps1`](#connect-androidwirelessdebuggingps1) | Android ワイヤレスデバッグの対話的ペアリング | `adb` |
-| [`send_ip_all.ps1`](#send_ip_allps1) | 同一サブネットを ping スキャンして稼働ホストを列挙 | PowerShell 7+ |
-| [`password.ps1`](#passwordps1) | 接続中の Wi-Fi の SSID とパスワードを表示 | 管理者権限 |
-| [`capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
-| [`ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
-| [`StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
-| [`IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
-| [`DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
-| [`PngToJpg.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
-| [`PngToEps.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
+| [`powershell/Rename-ByRegex.ps1`](#rename-byregexps1) | 正規表現によるファイル名の対話的一括リネーム | — |
+| [`powershell/Undo-RenameLog.ps1`](#undo-renamelogps1) | 上記リネームをログから巻き戻す | — |
+| [`powershell/ssh-list.ps1`](#ssh-listps1) | SSH 接続先を GUI 一覧から選んで接続 | `ssh`, CSV |
+| [`powershell/Connect-AndroidWirelessDebugging.ps1`](#connect-androidwirelessdebuggingps1) | Android ワイヤレスデバッグの対話的ペアリング | `adb` |
+| [`powershell/send_ip_all.ps1`](#send_ip_allps1) | 同一サブネットを ping スキャンして稼働ホストを列挙 | PowerShell 7+ |
+| [`powershell/password.ps1`](#passwordps1) | 接続中の Wi-Fi の SSID とパスワードを表示 | 管理者権限 |
+| [`powershell/capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
+| [`powershell/ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
+| [`autohotkey/StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
+| [`autohotkey/IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
+| [`autohotkey/DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
+| [`powershell/PngToJpg.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
+| [`powershell/PngToEps.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
 
 ---
 
@@ -98,7 +108,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 SSH 接続先を Windows フォームの一覧（Out-GridView 風）から選んで接続します。
 `↑` `↓` で選択、Enter またはダブルクリックで接続、`q` でキャンセルです。
 
-接続先は **スクリプトから見て `../data/machine_list.csv`** を読み込みます。
+接続先は **リポジトリの外の `../data/machine_list.csv`**（スクリプトから見て `../../data/`）を読み込みます。
 このリポジトリには含まれていないので、以下の形式で用意してください。
 
 ```csv

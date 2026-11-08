@@ -3,6 +3,11 @@
 Windows 向けの個人用スクリプト集（PowerShell + AutoHotkey v2）。
 各スクリプトは単体で動くため、ビルドやテストのパイプラインはありません。
 
+- `powershell/` … `.ps1`（ユーザー PATH に登録されているディレクトリ）
+- `autohotkey/` … `.ahk`（スタートアップの `.lnk` はこのディレクトリのパスを指す）
+
+ファイルを移動・リネームすると PATH やスタートアップのショートカットが切れるので注意する。
+
 ## 開発 / デバッグ時の必須ルール: GUI ポップアップを出さない
 
 GUI ダイアログが出るとユーザーの操作待ちになり、セッションがブロックされます。
@@ -21,7 +26,7 @@ Bash ツール（Git Bash / MSYS2）は、引数の先頭の `/` を Windows パ
 
 ```bash
 # NG: Bash ツールから実行した場合
-"/c/Program Files/AutoHotkey/v2/AutoHotkey64.exe" /validate StorageBar.ahk
+"/c/Program Files/AutoHotkey/v2/AutoHotkey64.exe" /validate autohotkey/StorageBar.ahk
 ```
 
 の `/validate` が `C:/Program Files/Git/validate` に書き換えられ、
@@ -34,7 +39,7 @@ AutoHotkey はこれを「スクリプトファイルのパス」と解釈して
 `/ErrorStdOut` を付けるとエラーがダイアログではなく標準出力に出ます。
 
 ```powershell
-& "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" /ErrorStdOut /validate "C:\Users\human\programing\powershell\bin\StorageBar.ahk"
+& "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" /ErrorStdOut /validate "C:\Users\human\programing\powershell\bin\autohotkey\StorageBar.ahk"
 # 構文 OK  -> 出力なし / exit 0
 # 構文エラー -> stdout にエラー行が出て exit 2（ポップアップは出ない）
 ```
@@ -43,7 +48,7 @@ AutoHotkey はこれを「スクリプトファイルのパス」と解釈して
 
 ```bash
 MSYS_NO_PATHCONV=1 "/c/Program Files/AutoHotkey/v2/AutoHotkey64.exe" \
-  /ErrorStdOut /validate "C:\Users\human\programing\powershell\bin\StorageBar.ahk"
+  /ErrorStdOut /validate "C:\Users\human\programing\powershell\bin\autohotkey\StorageBar.ahk"
 ```
 
 ### その他のポップアップ対策
@@ -54,7 +59,7 @@ MSYS_NO_PATHCONV=1 "/c/Program Files/AutoHotkey/v2/AutoHotkey64.exe" \
 
   ```powershell
   $e = $null
-  [System.Management.Automation.Language.Parser]::ParseFile("$PWD\Rename-ByRegex.ps1", [ref]$null, [ref]$e)
+  [System.Management.Automation.Language.Parser]::ParseFile("$PWD\powershell\Rename-ByRegex.ps1", [ref]$null, [ref]$e)
   $e
   ```
 
