@@ -30,13 +30,14 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | ファイル | 概要 | 依存 |
 | --- | --- | --- |
 | [`powershell/Rename-ByRegex.ps1`](#rename-byregexps1) | 正規表現によるファイル名の対話的一括リネーム | — |
-| [`powershell/Undo-RenameLog.ps1`](#undo-renamelogps1) | 上記リネームをログから巻き戻す | — |
+| [`powershell/Undo-RenameLog.ps1`](#undo-renamelogps1) | `Rename-ByRegex.ps1` のリネームをログから巻き戻す | — |
 | [`powershell/ssh-list.ps1`](#ssh-listps1) | SSH 接続先を GUI 一覧から選んで接続 | `ssh`, CSV |
 | [`powershell/Connect-AndroidWirelessDebugging.ps1`](#connect-androidwirelessdebuggingps1) | Android ワイヤレスデバッグの対話的ペアリング | `adb` |
 | [`powershell/send_ip_all.ps1`](#send_ip_allps1) | 同一サブネットを ping スキャンして稼働ホストを列挙 | PowerShell 7+ |
 | [`powershell/password.ps1`](#passwordps1) | 接続中の Wi-Fi の SSID とパスワードを表示 | 管理者権限 |
 | [`powershell/capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
 | [`powershell/ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
+| [`powershell/Show-ScriptList.ps1`](#show-scriptlistps1) | このディレクトリのスクリプト一覧を説明付きで表示（Ctrl+Shift+? に割り当て可） | — |
 | [`autohotkey/StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`autohotkey/IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`autohotkey/DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
@@ -170,6 +171,35 @@ LAN 上の機器の IP を探すときに使います。
 > **管理者権限が必須** です。デバイス名が決め打ちなので、
 > 別のタッチデバイスを使っている場合はスクリプト冒頭の `FriendlyName` を
 > 書き換えてください（`Get-PnpDevice -Class HIDClass` で確認できます）。
+
+### `Show-ScriptList.ps1`
+
+`powershell/` にある `.ps1` の一覧を説明付きで表示します。ファイル名を忘れたとき用です。
+説明はこの README のファイル一覧表の「概要」欄から取り、表にないスクリプトは `.SYNOPSIS` を使います。
+新しいスクリプトを追加したら、表にも行を足しておくと説明が表示されます。
+
+```powershell
+Show-ScriptList.ps1
+```
+
+プロファイル（`$PROFILE`）に次を書いておくと、どのディレクトリにいても
+`Ctrl+Shift+?` で一覧を表示できます。入力途中のコマンドは消えずに残ります。
+
+```powershell
+Set-PSReadLineKeyHandler -Chord 'Ctrl+?' -BriefDescription ShowScriptList `
+    -Description 'bin\powershell のスクリプト一覧を表示' -ScriptBlock {
+    $line = $null; $cursor = $null
+    [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
+    [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($line.Length)
+    Write-Host ''
+    & 'C:\Users\human\programing\powershell\bin\powershell\Show-ScriptList.ps1'
+    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt($null, $Host.UI.RawUI.CursorPosition.Y)
+    [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($cursor)
+}
+```
+
+> キーを押しても反応しない場合は、`Alt+?` に続けて `Ctrl+Shift+?` を押すと、
+> PSReadLine がそのキーをどう受け取っているかを確認できます。
 
 ### `StorageBar.ahk`
 
