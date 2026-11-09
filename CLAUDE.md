@@ -39,7 +39,8 @@ AutoHotkey はこれを「スクリプトファイルのパス」と解釈して
 `/ErrorStdOut` を付けるとエラーがダイアログではなく標準出力に出ます。
 
 ```powershell
-& "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" /ErrorStdOut /validate "C:\Users\human\programing\powershell\bin\autohotkey\StorageBar.ahk"
+# リポジトリのルートで実行する
+& "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" /ErrorStdOut /validate "$PWD\autohotkey\StorageBar.ahk"
 # 構文 OK  -> 出力なし / exit 0
 # 構文エラー -> stdout にエラー行が出て exit 2（ポップアップは出ない）
 ```
@@ -47,8 +48,9 @@ AutoHotkey はこれを「スクリプトファイルのパス」と解釈して
 どうしても Bash ツールを使う場合は、パス変換を無効にしてスクリプトは Windows 形式の絶対パスで渡します。
 
 ```bash
+# リポジトリのルートで実行する（cygpath -w で Windows 形式の絶対パスに変換）
 MSYS_NO_PATHCONV=1 "/c/Program Files/AutoHotkey/v2/AutoHotkey64.exe" \
-  /ErrorStdOut /validate "C:\Users\human\programing\powershell\bin\autohotkey\StorageBar.ahk"
+  /ErrorStdOut /validate "$(cygpath -w "$PWD/autohotkey/StorageBar.ahk")"
 ```
 
 ### その他のポップアップ対策

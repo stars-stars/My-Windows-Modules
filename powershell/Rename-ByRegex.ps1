@@ -48,7 +48,8 @@
     Undo 用ログを書き出さない。
 
 .PARAMETER LogDirectory
-    Undo 用ログの出力先。既定は ~/.rename-by-regex/logs。
+    Undo 用ログの出力先。既定は data/rename-by-regex/logs
+    （スクリプトの 2 階層上にある data ディレクトリ。ssh-list.ps1 と共通）。
 
 .PARAMETER Help
     リネームを始めず、ヘルプ画面（使い方 / 正規表現チートシート）だけを表示する。
@@ -224,7 +225,7 @@ function Get-HelpPages {
         (New-HelpLine -Key '-Replacement' -Text '置換後の文字列を対話入力せずに渡す')
         (New-HelpLine -Key '-WhatIf' -Text 'レビューまで行い、実行はしない')
         (New-HelpLine -Key '-NoLog' -Text 'Undo 用ログを書き出さない')
-        (New-HelpLine -Key '-LogDirectory' -Text 'ログの出力先（既定は ~/.rename-by-regex/logs）')
+        (New-HelpLine -Key '-LogDirectory' -Text 'ログの出力先（既定は data\rename-by-regex\logs）')
         (New-HelpLine -Key '-Help' -Text 'このヘルプだけを開く')
         (New-HelpLine)
         (New-HelpHeading '実行例')
@@ -1106,8 +1107,9 @@ function Write-UndoLog {
 
     if ($NoLog -or $Applied.Count -eq 0) { return $null }
 
+    # 既定は ssh-list.ps1 の接続先リストと同じ data ディレクトリ
     $dir = if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
-        Join-Path $HOME '.rename-by-regex\logs'
+        [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\data\rename-by-regex\logs'))
     }
     else { $LogDirectory }
 

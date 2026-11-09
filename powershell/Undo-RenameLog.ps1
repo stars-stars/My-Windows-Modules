@@ -11,7 +11,8 @@
     使用するログファイル。省略時は LogDirectory 内の最新ログ。
 
 .PARAMETER LogDirectory
-    ログの置き場所。既定は ~/.rename-by-regex/logs。
+    ログの置き場所。既定は data/rename-by-regex/logs
+    （スクリプトの 2 階層上にある data ディレクトリ。Rename-ByRegex.ps1 と共通）。
 
 .PARAMETER List
     ログの一覧だけを表示して終了する。
@@ -23,7 +24,7 @@
     .\Undo-RenameLog.ps1 -List
 
 .EXAMPLE
-    .\Undo-RenameLog.ps1 -LogPath ~\.rename-by-regex\logs\rename-20261003-120000.json
+    .\Undo-RenameLog.ps1 -LogPath ..\..\data\rename-by-regex\logs\rename-20261003-120000.json
 #>
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
@@ -67,8 +68,9 @@ function Read-Choice {
     }
 }
 
+# 既定は Rename-ByRegex.ps1 の書き出し先（ssh-list.ps1 と同じ data ディレクトリ）
 $logDir = if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
-    Join-Path $HOME '.rename-by-regex\logs'
+    [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\data\rename-by-regex\logs'))
 }
 else { $LogDirectory }
 

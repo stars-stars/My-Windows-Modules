@@ -60,7 +60,8 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
    → 「変更前 → 変更後」のレビューが出て、Enter で実行
 
 各ステップで `r` = 再入力 / `q` = 中止 が選べます。実行内容は
-`~/.rename-by-regex/logs` 配下に JSON ログとして保存され、
+`data/rename-by-regex/logs` 配下に JSON ログとして保存され
+（`data` は `ssh-list.ps1` の接続先リストと同じ、このリポジトリの 1 階層上のディレクトリ）、
 `Undo-RenameLog.ps1` で元に戻せます。
 
 使い方と正規表現チートシートを並べたヘルプ画面を内蔵しています
@@ -99,7 +100,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 .\Undo-RenameLog.ps1 -List
 
 # ログを指定
-.\Undo-RenameLog.ps1 -LogPath ~\.rename-by-regex\logs\rename-20261003-120000.json
+.\Undo-RenameLog.ps1 -LogPath ..\..\data\rename-by-regex\logs\rename-20261003-120000.json
 ```
 
 主なパラメータ: `-LogPath` `-LogDirectory` `-List`（`-WhatIf` / `-Confirm` に対応）
@@ -199,7 +200,7 @@ Set-PSReadLineKeyHandler -Chord 'Ctrl+?' -BriefDescription ShowScriptList `
     [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
     [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($line.Length)
     Write-Host ''
-    & 'C:\Users\human\programing\powershell\bin\powershell\Show-ScriptList.ps1'
+    & 'Show-ScriptList.ps1'   # powershell\ は PATH に登録済みなので名前だけで呼べる
     [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt($null, $Host.UI.RawUI.CursorPosition.Y)
     [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition($cursor)
 }
