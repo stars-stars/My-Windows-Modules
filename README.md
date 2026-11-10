@@ -38,6 +38,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`powershell/capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
 | [`powershell/ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
 | [`powershell/Show-ScriptList.ps1`](#show-scriptlistps1) | このディレクトリのスクリプト一覧を説明付きで表示（Ctrl+Shift+? に割り当て可） | — |
+| [`powershell/Copy-FileToClipboard.ps1`](#copy-filetoclipboardps1) | ファイルをエクスプローラーの Ctrl+C と同じ形でクリップボードにコピー | — |
 | [`autohotkey/StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`autohotkey/IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`autohotkey/DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
@@ -208,6 +209,26 @@ Set-PSReadLineKeyHandler -Chord 'Ctrl+?' -BriefDescription ShowScriptList `
 
 > キーを押しても反応しない場合は、`Alt+?` に続けて `Ctrl+Shift+?` を押すと、
 > PSReadLine がそのキーをどう受け取っているかを確認できます。
+
+### `Copy-FileToClipboard.ps1`
+
+ファイル / フォルダを、エクスプローラーで `Ctrl+C` したのと同じ形（ファイルドロップリスト）で
+クリップボードにコピーします。エクスプローラー、Slack、Teams、メールなどへ `Ctrl+V` で
+ファイルとして貼り付け（添付）できます。テキストとして中身を貼り付けたい場合は
+`Get-Content file | Set-Clipboard` を使ってください。
+
+```powershell
+# 1 ファイルをコピー
+Copy-FileToClipboard.ps1 .\report.pdf
+
+# ワイルドカード・複数指定（まとめて 1 回でコピー）
+Copy-FileToClipboard.ps1 *.png, .\docs
+
+# パイプラインから
+Get-ChildItem -Filter *.log | Copy-FileToClipboard.ps1
+```
+
+クリップボードの操作には STA モードが必要です（通常の `pwsh` / `powershell` は STA で起動します）。
 
 ### `StorageBar.ahk`
 
