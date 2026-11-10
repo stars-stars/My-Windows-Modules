@@ -16,7 +16,7 @@ bin/
 ## 動作環境
 
 - Windows 10 / 11
-- PowerShell 7 以降を推奨（`Rename-ByRegex.ps1` と `Undo-RenameLog.ps1` は 5.1 でも動作、`send_ip_all.ps1` は `ForEach-Object -Parallel` を使うため 7 以降が必須）
+- PowerShell 7 以降を推奨（`Rename-ByRegex.ps1` と `Undo-RenameLog.ps1` は 5.1 でも動作、`Find-LanHost.ps1` は `ForEach-Object -Parallel` を使うため 7 以降が必須）
 - 一部スクリプトは外部ツールに依存します（下表の「依存」欄を参照）
 
 スクリプトは署名していないため、実行ポリシーの変更が必要な場合があります。
@@ -31,19 +31,19 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | --- | --- | --- |
 | [`powershell/Rename-ByRegex.ps1`](#rename-byregexps1) | 正規表現によるファイル名の対話的一括リネーム | — |
 | [`powershell/Undo-RenameLog.ps1`](#undo-renamelogps1) | `Rename-ByRegex.ps1` のリネームをログから巻き戻す | — |
-| [`powershell/ssh-list.ps1`](#ssh-listps1) | SSH 接続先を GUI 一覧から選んで接続 | `ssh`, CSV |
+| [`powershell/Connect-SshHost.ps1`](#connect-sshhostps1) | SSH 接続先を GUI 一覧から選んで接続 | `ssh`, CSV |
 | [`powershell/Connect-AndroidWirelessDebugging.ps1`](#connect-androidwirelessdebuggingps1) | Android ワイヤレスデバッグの対話的ペアリング・接続（LAN / Tailscale） | `adb`（Tailscale 利用時は `tailscale`） |
-| [`powershell/send_ip_all.ps1`](#send_ip_allps1) | 同一サブネットを ping スキャンして稼働ホストを列挙 | PowerShell 7+ |
-| [`powershell/password.ps1`](#passwordps1) | 接続中の Wi-Fi の SSID とパスワードを表示 | 管理者権限 |
-| [`powershell/capacity.ps1`](#capacityps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
-| [`powershell/ToggleTouch.ps1`](#toggletouchps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
+| [`powershell/Find-LanHost.ps1`](#find-lanhostps1) | 同一サブネットを ping スキャンして稼働ホストを列挙 | PowerShell 7+ |
+| [`powershell/Show-WifiPassword.ps1`](#show-wifipasswordps1) | 接続中の Wi-Fi の SSID とパスワードを表示 | 管理者権限 |
+| [`powershell/Show-DirectorySize.ps1`](#show-directorysizeps1) | ディレクトリ直下の各項目の容量を色分け表示 | — |
+| [`powershell/Switch-TouchScreen.ps1`](#switch-touchscreenps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
 | [`powershell/Show-ScriptList.ps1`](#show-scriptlistps1) | このディレクトリのスクリプト一覧を説明付きで表示（Ctrl+Shift+? に割り当て可） | — |
 | [`powershell/Copy-FileToClipboard.ps1`](#copy-filetoclipboardps1) | ファイルをエクスプローラーの Ctrl+C と同じ形でクリップボードにコピー | — |
 | [`autohotkey/StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`autohotkey/IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`autohotkey/DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
-| [`powershell/PngToJpg.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
-| [`powershell/PngToEps.ps1`](#pngtojpgps1--pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
+| [`powershell/Convert-PngToJpg.ps1`](#convert-pngtojpgps1--convert-pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
+| [`powershell/Convert-PngToEps.ps1`](#convert-pngtojpgps1--convert-pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
 
 ---
 
@@ -62,7 +62,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 各ステップで `r` = 再入力 / `q` = 中止 が選べます。実行内容は
 `data/rename-by-regex/logs` 配下に JSON ログとして保存され
-（`data` は `ssh-list.ps1` の接続先リストと同じ、このリポジトリの 1 階層上のディレクトリ）、
+（`data` は `Connect-SshHost.ps1` の接続先リストと同じ、このリポジトリの 1 階層上のディレクトリ）、
 `Undo-RenameLog.ps1` で元に戻せます。
 
 使い方と正規表現チートシートを並べたヘルプ画面を内蔵しています
@@ -106,7 +106,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 主なパラメータ: `-LogPath` `-LogDirectory` `-List`（`-WhatIf` / `-Confirm` に対応）
 
-### `ssh-list.ps1`
+### `Connect-SshHost.ps1`
 
 SSH 接続先を Windows フォームの一覧（Out-GridView 風）から選んで接続します。
 `↑` `↓` で選択、Enter またはダブルクリックで接続、`q` でキャンセルです。
@@ -140,20 +140,20 @@ Connect-AndroidWirelessDebugging.ps1 -Mode Tailscale              # Tailscale �
 Connect-AndroidWirelessDebugging.ps1 -Mode Lan -Ip 192.168.1.23   # IP を指定
 ```
 
-### `send_ip_all.ps1`
+### `Find-LanHost.ps1`
 
 デフォルトルートから自分の IPv4 アドレスを自動検出し、同じ /24 サブネットの
 `.1` から `.254` に並列で ping を打って応答のあったホストを列挙します。
 LAN 上の機器の IP を探すときに使います。
 
 ```powershell
-.\send_ip_all.ps1
+.\Find-LanHost.ps1
 # Detected local IP address: 192.168.0.5
 # Scanning subnet: 192.168.0.1 to 192.168.0.254
 # 192.168.0.1 is UP
 ```
 
-### `password.ps1`
+### `Show-WifiPassword.ps1`
 
 現在接続中の Wi-Fi の SSID とパスワードを `netsh` 経由で取得して表示します。
 他の端末を同じ Wi-Fi に繋ぐときに使います。英語環境（`Key Content`）と
@@ -161,18 +161,18 @@ LAN 上の機器の IP を探すときに使います。
 
 > パスワードの取得には管理者権限が必要な場合があります。
 
-### `capacity.ps1`
+### `Show-DirectorySize.ps1`
 
 指定ディレクトリ直下の各項目の容量を一覧表示し、最後に合計を出します。
 ディレクトリはシアン、`.exe` は緑、その他は白で色分けされます。
 シンボリックリンクは二重計上を避けるためスキップします。
 
 ```powershell
-.\capacity.ps1              # カレントディレクトリ
-.\capacity.ps1 -Dir C:\tmp  # 指定したディレクトリ
+.\Show-DirectorySize.ps1              # カレントディレクトリ
+.\Show-DirectorySize.ps1 -Dir C:\tmp  # 指定したディレクトリ
 ```
 
-### `ToggleTouch.ps1`
+### `Switch-TouchScreen.ps1`
 
 `Intel(R) Precise Touch Device` の有効 / 無効を切り替えます。
 2-in-1 PC でタッチパネルの誤反応を一時的に止めたいときに使います。
@@ -283,7 +283,7 @@ AutoHotkey v2 のスクリプトです。`Win + Backspace` で画面を暗転し
 > - 電源設定の「画面をオフにする」時間が来ると、Windows が本当に消灯してロックします。長く離れるときはこれで問題ありません。
 > - 明るさを変えられるのは内蔵ディスプレイだけです。外部モニターは黒い画面になるだけです。
 
-### `PngToJpg.ps1` / `PngToEps.ps1`
+### `Convert-PngToJpg.ps1` / `Convert-PngToEps.ps1`
 
 カレントディレクトリにある `.png` をすべて JPG / EPS に変換します。
 EPS 版は LaTeX に図を貼るとき用です。元の PNG は残ります。

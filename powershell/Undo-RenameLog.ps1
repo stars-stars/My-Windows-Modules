@@ -68,7 +68,7 @@ function Read-Choice {
     }
 }
 
-# 既定は Rename-ByRegex.ps1 の書き出し先（ssh-list.ps1 と同じ data ディレクトリ）
+# 既定は Rename-ByRegex.ps1 の書き出し先（Connect-SshHost.ps1 と同じ data ディレクトリ）
 $logDir = if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
     [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\data\rename-by-regex\logs'))
 }

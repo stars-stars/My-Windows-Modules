@@ -49,7 +49,7 @@
 
 .PARAMETER LogDirectory
     Undo 用ログの出力先。既定は data/rename-by-regex/logs
-    （スクリプトの 2 階層上にある data ディレクトリ。ssh-list.ps1 と共通）。
+    （スクリプトの 2 階層上にある data ディレクトリ。Connect-SshHost.ps1 と共通）。
 
 .PARAMETER Help
     リネームを始めず、ヘルプ画面（使い方 / 正規表現チートシート）だけを表示する。
@@ -1107,7 +1107,7 @@ function Write-UndoLog {
 
     if ($NoLog -or $Applied.Count -eq 0) { return $null }
 
-    # 既定は ssh-list.ps1 の接続先リストと同じ data ディレクトリ
+    # 既定は Connect-SshHost.ps1 の接続先リストと同じ data ディレクトリ
     $dir = if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
         [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\data\rename-by-regex\logs'))
     }
