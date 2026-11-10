@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+    接続中の Wi-Fi の SSID とパスワードを表示する。
+
+.DESCRIPTION
+    netsh wlan の出力から取得します。英語環境（Key Content）と
+    日本語環境（主要なコンテンツ）の両方に対応しています。
+#>
+
 # 現在接続しているWi-Fiインターフェースの情報を取得
 $interfaces = netsh wlan show interfaces
 
@@ -14,15 +23,16 @@ foreach ($line in $interfaces) {
 # Wi-Fiに接続していない場合の処理
 if ([string]::IsNullOrEmpty($ssid)) {
     Write-Host "現在Wi-Fiに接続していないか、SSIDを取得できませんでした。" -ForegroundColor Red
-    exit
+    exit 1
 }
 
 # 取得したSSIDのプロファイル情報を、パスワード（キー）を平文で表示するオプションを付けて取得
-$profile = netsh wlan show profile name="$ssid" key=clear
+# （$profile は自動変数 $PROFILE と同名になるので使わない）
+$profileInfo = netsh wlan show profile name="$ssid" key=clear
 
 # パスワードを抽出
 $password = $null
-foreach ($line in $profile) {
+foreach ($line in $profileInfo) {
     # 英語環境の"Key Content"、日本語環境の"主要なコンテンツ"の両方に対応
     if ($line -match "(Key Content|主要なコンテンツ)\s*:\s*(.+)$") {
         $password = $matches[2].Trim()

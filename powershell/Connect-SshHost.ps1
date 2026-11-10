@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+    SSH 接続先を GUI 一覧から選んで接続する。
+
+.DESCRIPTION
+    ../../data/machine_list.csv（Name,Host,User,Port）を一覧表示します。
+    ↑ ↓ で選択、Enter かダブルクリックで接続、q か Esc でキャンセルします。
+    User / Port が空欄の行は、ssh の既定値（~/.ssh/config を含む）で接続します。
+#>
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -88,8 +97,8 @@ $dataGridView.Add_KeyDown({
         $form.Close()
     }
 
-    # Qキーが押されたらキャンセル（何もせずに閉じる）
-    if ($e.KeyCode -eq 'Q') {
+    # Q / Esc キーが押されたらキャンセル（何もせずに閉じる）
+    if ($e.KeyCode -eq 'Q' -or $e.KeyCode -eq 'Escape') {
         $form.Tag = $null # 接続処理が走らないようにタグを空にする
         $form.Close()
     }
@@ -111,5 +120,10 @@ $form.ShowDialog() | Out-Null
 if ($form.Tag) {
     $s = $form.Tag
     Write-Host "Connecting to $($s.Name) ($($s.Host))..."
-    ssh "$($s.User)@$($s.Host)" -p $($s.Port)
+
+    # User / Port が空欄なら指定しない（ssh の既定値や ~/.ssh/config に任せる）
+    $destination = if ($s.User) { "$($s.User)@$($s.Host)" } else { $s.Host }
+    $sshArgs = @($destination)
+    if ($s.Port) { $sshArgs += @('-p', $s.Port) }
+    ssh @sshArgs
 }
