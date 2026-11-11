@@ -1,4 +1,4 @@
-# powershell/bin
+# Windows/bin
 
 Windows 環境で日常的に使っている PowerShell / AutoHotkey スクリプト群です。
 単体で動くものが中心なので、使いたいものだけ個別に実行できます。
