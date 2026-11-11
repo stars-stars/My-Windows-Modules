@@ -42,6 +42,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`autohotkey/StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`autohotkey/IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`autohotkey/DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
+| [`autohotkey/PowerPointFastScroll.ahk`](#powerpointfastscrollahk) | PowerPoint の編集画面に高速スクロールとミドルボタンのオートスクロールを追加 | AutoHotkey v2 |
 | [`powershell/Convert-PngToJpg.ps1`](#convert-pngtojpgps1--convert-pngtoepsps1) | カレントディレクトリの PNG を一括で JPG に変換 | ImageMagick |
 | [`powershell/Convert-PngToEps.ps1`](#convert-pngtojpgps1--convert-pngtoepsps1) | カレントディレクトリの PNG を一括で EPS に変換 | ImageMagick |
 
@@ -287,6 +288,23 @@ AutoHotkey v2 のスクリプトです。`Win + Backspace` で画面を暗転し
 > - バックライトは完全には消えません（明るさ 0 で黒を表示しているだけ）。省電力の効果は本当の消灯より小さくなります。
 > - 電源設定の「画面をオフにする」時間が来ると、Windows が本当に消灯してロックします。長く離れるときはこれで問題ありません。
 > - 明るさを変えられるのは内蔵ディスプレイだけです。外部モニターは黒い画面になるだけです。
+
+### `PowerPointFastScroll.ahk`
+
+AutoHotkey v2 のスクリプトです。PowerPoint の編集画面（`PPTFrameClass`）でだけ、次の操作を追加します。
+
+- `Shift + ホイール` → 1 刻みで `fastScrollAmount`（既定 8）刻み分スクロールする
+- `ミドルボタン` → オートスクロール。原点から離した距離に応じて縦横に加速する
+  - 短くクリック → 固定モード（もう一度ミドルボタン / 左右クリック / `Esc` / ホイールで解除）
+  - 押したままドラッグ → 離した時点で停止
+- 原点には半透明の丸いマーカーが出る（クリックやホイールは素通しする）
+- `Ctrl + Alt + R` でスクリプトを再読み込み
+
+スクロールはホイール入力を合成して送るので、ペインの構成やビューの種類に関係なく動きます（COM は使いません）。
+カーソルが PowerPoint の外にある間はスクロールを送りません。スライドショー中は何もしません。
+
+倍率・加速・デッドゾーン・固定モードの判定時間などはスクリプト冒頭の `cfg` で変更できます。
+変更したら `Ctrl + Alt + R` で反映してください。
 
 ### `Convert-PngToJpg.ps1` / `Convert-PngToEps.ps1`
 
