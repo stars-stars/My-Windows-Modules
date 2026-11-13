@@ -29,10 +29,14 @@ state := {
     carryX: 0, carryY: 0, dirX: 0, dirY: 0
 }
 
+LINK_PATH := A_Startup "\PowerPointFastScroll.lnk"
+
 CoordMode("Mouse", "Screen")
 OnExit(CleanupOnExit)
 ValidateSettings()
-A_IconTip := "PowerPoint FastScroll"
+; PowerPoint 本体と紛らわしくないよう、マウスのアイコンにする。
+try TraySetIcon("main.cpl", 1)
+BuildMenu()
 
 ; 対象は編集画面（PPTFrameClass）のみ。
 ; スライドショー（screenClass）はホイール1刻み＝1スライドなので触らない。
@@ -244,9 +248,37 @@ StopAutoScroll() {
     state.dirX := state.dirY := 0
 }
 
-ReloadScript() {
+ReloadScript(*) {
     StopAutoScroll()
     Reload()
+}
+
+; ===== メニュー =====
+BuildMenu() {
+    m := A_TrayMenu
+    m.Delete()
+    m.Add("再読み込み`tCtrl+Alt+R", ReloadScript)
+    m.Add()
+    m.Add("スタートアップに登録", ToggleStartup)
+    m.Add()
+    m.Add("終了", (*) => ExitApp())
+    A_IconTip := "PowerPoint FastScroll`nShift + ホイール: 高速スクロール`nミドルボタン: オートスクロール"
+    UpdateStartupCheck()
+}
+
+ToggleStartup(*) {
+    if FileExist(LINK_PATH)
+        FileDelete(LINK_PATH)
+    else
+        FileCreateShortcut(A_AhkPath, LINK_PATH, A_ScriptDir, '"' A_ScriptFullPath '"')
+    UpdateStartupCheck()
+}
+
+UpdateStartupCheck() {
+    if FileExist(LINK_PATH)
+        A_TrayMenu.Check("スタートアップに登録")
+    else
+        A_TrayMenu.Uncheck("スタートアップに登録")
 }
 
 CleanupOnExit(*) {
