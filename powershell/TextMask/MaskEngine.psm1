@@ -21,7 +21,7 @@
 
 Set-StrictMode -Version 3.0
 
-$script:Categories = @('COMPANY', 'PERSON', 'PLACE', 'PRODUCT', 'PROJECT', 'EMAIL', 'PHONE', 'CUSTOM')
+$script:Categories = @('COMPANY', 'PERSON', 'PLACE', 'PRODUCT', 'PROJECT', 'EMAIL', 'PHONE', 'URL', 'POSTAL', 'IP', 'CUSTOM')
 $script:CategoryLabels = [ordered]@{
     COMPANY = '会社名・組織名'
     PERSON  = '人名'
@@ -30,6 +30,9 @@ $script:CategoryLabels = [ordered]@{
     PROJECT = 'プロジェクト名'
     EMAIL   = 'メールアドレス'
     PHONE   = '電話番号'
+    URL     = 'URL'
+    POSTAL  = '郵便番号'
+    IP      = 'IP アドレス'
     CUSTOM  = 'その他'
 }
 
@@ -48,18 +51,94 @@ $script:LooseTokenRegex = [regex]::new(
     $script:RegexOptsIgnoreCase, $script:RegexTimeout)
 Remove-Variable catAlt
 
-# 自動検出（メールアドレス・日本の電話番号）
+# ---------------------------------------------------------------------------
+# 自動検出（メールアドレス・電話番号・URL・郵便番号・IP アドレス）
+#   数字は全角も対象（D）、区切りのハイフンは全角・各種ダッシュ・長音記号も対象（H）
+# ---------------------------------------------------------------------------
+$D = '[0-9０-９]'
+$H = '[\-－‐‑–−ー]'
+$NotNumAround = '0-9０-９\-－‐‑–−ー'
+
 $script:EmailRegex = [regex]::new(
     '(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}(?![A-Za-z0-9\-])',
     $script:RegexOpts, $script:RegexTimeout)
+
 $script:PhoneRegex = [regex]::new(
-    '(?<![0-9+\-])(?:' +
-    '\+81[\- ]?[0-9]{1,4}[\- ][0-9]{1,4}[\- ][0-9]{3,4}' +   # +81-3-1234-5678
-    '|0[0-9]{1,4}-[0-9]{1,4}-[0-9]{3,4}' +                    # 03-1234-5678 / 090-1234-5678
-    '|0[0-9]{1,4}[(（][0-9]{1,4}[)）][0-9]{3,4}' +              # 03(1234)5678
-    '|0[0-9]{9,10}' +                                         # 0312345678 / 09012345678
-    ')(?![0-9\-])',
+    "(?<![$NotNumAround+＋])(?:" +
+    "[+＋][8８][1１](?:$H| )?$D{1,4}(?:$H| )$D{1,4}(?:$H| )$D{3,4}" +   # +81-3-1234-5678 / +81 90 1234 5678
+    "|[0０]$D{1,4}$H$D{1,4}$H$D{3,4}" +                          # 03-1234-5678 / ０９０－１２３４－５６７８
+    "|[0０]$D{1,4}[ 　]$D{1,4}[ 　]$D{3,4}" +                    # 090 1234 5678
+    "|[0０]$D{1,4}[(（]$D{1,4}[)）]$D{3,4}" +                    # 03(1234)5678
+    "|[0０]$D{9,10}" +                                           # 09012345678
+    ")(?![$NotNumAround])",
     $script:RegexOpts, $script:RegexTimeout)
+
+# 〒 の後ろは区切りなしの 7 桁も可。〒 記号自体は置換しない。〒 なしは 123-4567 の形だけ
+$script:PostalRegex = [regex]::new(
+    "(?<=〒[ 　]?)$D{3}${H}?$D{4}(?![$NotNumAround])" +
+    "|(?<![$NotNumAround.．])$D{3}$H$D{4}(?![$NotNumAround])",
+    $script:RegexOpts, $script:RegexTimeout)
+
+# IPv4（各オクテット 0-255、任意で CIDR）。前後に数字や「.数字」が続くもの（バージョン番号など）は除く
+$octet = '(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])'
+$script:IpRegex = [regex]::new(
+    "(?<![0-9.])$octet(?:\.$octet){3}(?:/(?:3[0-2]|[12]?[0-9]))?(?![0-9]|\.[0-9])",
+    $script:RegexOpts, $script:RegexTimeout)
+
+# URL は ASCII の URL 文字だけ（日本語が続けばそこで止まる）。識別子と衝突しないよう [ ] は含めない
+$script:UrlRegex = [regex]::new(
+    '(?<![A-Za-z0-9])(?:(?:https?|ftp)://|www\.)[A-Za-z0-9\-._~:/?#@!$&''()*+,;=%]+',
+    $script:RegexOptsIgnoreCase, $script:RegexTimeout)
+
+Remove-Variable D, H, NotNumAround, octet
+
+function Get-UrlTrimmedLength {
+    # URL の末尾に付いた句読点・閉じ括弧（対応する開き括弧がないもの）を除いた長さ
+    param([string]$Value)
+    $len = $Value.Length
+    while ($len -gt 0) {
+        $ch = $Value[$len - 1]
+        if (".,;:!?'`"*".IndexOf($ch) -ge 0) { $len--; continue }
+        if ($ch -eq ')') {
+            $body = $Value.Substring(0, $len)
+            if (($body.Split('(').Count - 1) -lt ($body.Split(')').Count - 1)) { $len--; continue }
+        }
+        break
+    }
+    # スキームや www. だけになったものは URL とみなさない
+    $v = $Value.Substring(0, $len)
+    if ($v -match '^(?:(?:https?|ftp)://|www\.)[.\-_~/]*$') { return 0 }
+    return $len
+}
+
+# 検出器の一覧（Name はカテゴリ名と同じ。Trim は一致後に長さを調整する関数名）
+$script:Detectors = @(
+    [pscustomobject]@{ Name = 'EMAIL'; Label = 'メールアドレス'; Regex = $script:EmailRegex; Source = 'email'; Trim = $null }
+    [pscustomobject]@{ Name = 'PHONE'; Label = '電話番号'; Regex = $script:PhoneRegex; Source = 'phone'; Trim = $null }
+    [pscustomobject]@{ Name = 'URL'; Label = 'URL'; Regex = $script:UrlRegex; Source = 'url'; Trim = 'Get-UrlTrimmedLength' }
+    [pscustomobject]@{ Name = 'POSTAL'; Label = '郵便番号'; Regex = $script:PostalRegex; Source = 'postal'; Trim = $null }
+    [pscustomobject]@{ Name = 'IP'; Label = 'IP アドレス'; Regex = $script:IpRegex; Source = 'ip'; Trim = $null }
+)
+
+function Test-RegexTimeout {
+    # PowerShell が包んだ例外も含めて、正規表現のタイムアウトかどうか
+    param([System.Exception]$Exception)
+    for ($ex = $Exception; $null -ne $ex; $ex = $ex.InnerException) {
+        if ($ex -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) { return $true }
+    }
+    return $false
+}
+
+function Get-DetectorMatch {
+    # 検出器 1 つ分の一致（Index / Length / Value）を返す。Trim 後に空になったものは除く
+    param($Detector, [string]$Text)
+    foreach ($m in $Detector.Regex.Matches($Text)) {
+        $len = $m.Length
+        if ($Detector.Trim) { $len = & $Detector.Trim $m.Value }
+        if ($len -le 0) { continue }
+        [pscustomobject]@{ Index = $m.Index; Length = $len; Value = $m.Value.Substring(0, $len) }
+    }
+}
 
 $script:PromptHeader = (@(
         '以下の文章を添削してください。'
@@ -236,6 +315,9 @@ function Invoke-TextMask {
     .PARAMETER Entries
         辞書項目。Original / Category / Enabled を持つオブジェクトまたはハッシュテーブル。
 
+    .PARAMETER Detect
+        自動検出する種類（EMAIL / PHONE / URL / POSTAL / IP）。Get-TextMaskDetector で一覧を取得できる。
+
     .OUTPUTS
         Text（変換結果。エラー時は $null）, Count, Used, InputSpans, OutputSpans, Warnings, Errors, HasError
     #>
@@ -244,13 +326,21 @@ function Invoke-TextMask {
         [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
         [AllowNull()][AllowEmptyCollection()][object[]]$Entries,
         [Parameter(Mandatory)][psobject]$Session,
-        [switch]$DetectEmail,
-        [switch]$DetectPhone
+        [AllowNull()][AllowEmptyCollection()][string[]]$Detect
     )
 
     $ord = [StringComparison]::Ordinal
     $warnings = [System.Collections.Generic.List[object]]::new()
     $errors = [System.Collections.Generic.List[object]]::new()
+
+    $detectors = [System.Collections.Generic.List[object]]::new()
+    foreach ($name in @($Detect)) {
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $d = $script:Detectors | Where-Object Name -EQ $name.Trim().ToUpperInvariant()
+        if (-not $d) { throw ('不明な自動検出の種類です: {0}（{1} のいずれか）' -f $name, ($script:Detectors.Name -join ' / ')) }
+        if (-not $detectors.Contains($d)) { $detectors.Add($d) }
+    }
+    $anyDetect = $detectors.Count -gt 0
 
     # 1. 辞書の検証（空文字・重複）
     $literals = [System.Collections.Generic.List[object]]::new()
@@ -275,7 +365,7 @@ function Invoke-TextMask {
     if ($dup -gt 0) {
         $warnings.Add((New-MaskMessage Warning ('同じ文字列の辞書項目が重複していたため {0} 件を統合しました（先に登録された項目を使用）。' -f $dup)))
     }
-    if ($literals.Count -eq 0 -and -not $DetectEmail -and -not $DetectPhone) {
+    if ($literals.Count -eq 0 -and -not $anyDetect) {
         $warnings.Add((New-MaskMessage Warning '辞書が 0 件です。置換したい文字列を辞書に登録してください。'))
     }
 
@@ -321,21 +411,19 @@ function Invoke-TextMask {
         }
     }
 
-    $detectors = [System.Collections.Generic.List[object]]::new()
-    if ($DetectEmail) { $detectors.Add([pscustomobject]@{ Regex = $script:EmailRegex; Category = 'EMAIL'; Source = 'email'; Label = 'メールアドレス' }) }
-    if ($DetectPhone) { $detectors.Add([pscustomobject]@{ Regex = $script:PhoneRegex; Category = 'PHONE'; Source = 'phone'; Label = '電話番号' }) }
     foreach ($d in $detectors) {
         try {
-            foreach ($m in $d.Regex.Matches($Text)) {
+            foreach ($m in @(Get-DetectorMatch -Detector $d -Text $Text)) {
                 if ($Session.ExcludedValues.Contains($m.Value)) { continue }
                 $cands.Add([pscustomobject]@{
                         Start = $m.Index; Length = $m.Length; Original = $m.Value
-                        Category = $d.Category; Source = $d.Source; Priority = 1
+                        Category = $d.Name; Source = $d.Source; Priority = 1
                     })
             }
         }
-        catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
-            $warnings.Add((New-MaskMessage Warning ('{0}の自動検出が時間切れになったため、途中で打ち切りました。' -f $d.Label)))
+        catch {
+            if (-not (Test-RegexTimeout $_.Exception)) { throw }
+            $warnings.Add((New-MaskMessage Warning ('{0}の自動検出が時間切れになったため、検出を省略しました。' -f $d.Label)))
         }
     }
 
@@ -398,7 +486,7 @@ function Invoke-TextMask {
             }
         }
     }
-    if ($selected.Count -eq 0 -and ($literals.Count -gt 0 -or $DetectEmail -or $DetectPhone)) {
+    if ($selected.Count -eq 0 -and ($literals.Count -gt 0 -or $anyDetect)) {
         $warnings.Add((New-MaskMessage Warning '置換対象が見つかりませんでした。'))
     }
 
@@ -513,7 +601,8 @@ function Invoke-TextUnmask {
             $warnings.Add((New-MaskMessage Warning ('{0} 行目の「{1}」は識別子の書式が崩れている可能性があります。自動では復元しないので、必要なら手で直してください。' -f (Get-LineNumber $Text $m.Index), $m.Value) $m.Index $m.Length))
         }
     }
-    catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+    catch {
+        if (-not (Test-RegexTimeout $_.Exception)) { throw }
         $warnings.Add((New-MaskMessage Warning '書式が崩れた識別子の検査が時間切れになったため、途中で打ち切りました。'))
     }
 
@@ -551,20 +640,32 @@ function Get-CorrectionPrompt {
 function Find-MaskPattern {
     <#
     .SYNOPSIS
-        文字列がメールアドレス・電話番号の形式に完全一致するかを返す（登録時のカテゴリ推定用）。
+        文字列全体が自動検出の形式（メールアドレス・電話番号・URL・郵便番号・IP アドレス）に
+        一致すればそのカテゴリ名を返す（登録時のカテゴリ推定用）。
     #>
     param([AllowEmptyString()][string]$Text)
-    try {
-        $m = $script:EmailRegex.Match($Text)
-        if ($m.Success -and $m.Index -eq 0 -and $m.Length -eq $Text.Length) { return 'EMAIL' }
-        $m = $script:PhoneRegex.Match($Text)
-        if ($m.Success -and $m.Index -eq 0 -and $m.Length -eq $Text.Length) { return 'PHONE' }
+    foreach ($d in $script:Detectors) {
+        try {
+            foreach ($m in @(Get-DetectorMatch -Detector $d -Text $Text)) {
+                if ($m.Index -eq 0 -and $m.Length -eq $Text.Length) { return $d.Name }
+            }
+        }
+        catch {
+            if (-not (Test-RegexTimeout $_.Exception)) { throw }
+        }
     }
-    catch [System.Text.RegularExpressions.RegexMatchTimeoutException] { }
     return $null
 }
 
+function Get-TextMaskDetector {
+    <# .SYNOPSIS 自動検出の種類の一覧（Name / Label）。 #>
+    foreach ($d in $script:Detectors) {
+        [pscustomobject]@{ Name = $d.Name; Label = $d.Label }
+    }
+}
+
 Export-ModuleMember -Function @(
+    'Get-TextMaskDetector'
     'Get-TextMaskCategory'
     'ConvertTo-MaskCategory'
     'Test-MaskToken'

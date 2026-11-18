@@ -252,7 +252,7 @@ Test-Case '空入力・辞書 0 件・無効な項目でもクラッシュしな
 Test-Case 'メールアドレス・電話番号を検出し、値ごとに別の識別子を割り当てる' {
     $s = New-MaskSession
     $text = 'taro@example.com と hanako.s+tag@mail.example.co.jp、03-1234-5678 / 090-1234-5678 / +81-3-1234-5678、日付 2026-11-18、taro@example.com'
-    $r = Invoke-TextMask -Text $text -Entries @() -Session $s -DetectEmail -DetectPhone
+    $r = Invoke-TextMask -Text $text -Entries @() -Session $s -Detect EMAIL, PHONE
     Assert-Equal '[[EMAIL_01]] と [[EMAIL_02]]、[[PHONE_01]] / [[PHONE_02]] / [[PHONE_03]]、日付 2026-11-18、[[EMAIL_01]]' $r.Text
     Assert-Equal 'email' $s.Mappings['[[EMAIL_02]]'].Source
     $u = Invoke-TextUnmask -Text $r.Text -Session $s
@@ -262,7 +262,7 @@ Test-Case 'メールアドレス・電話番号を検出し、値ごとに別の
 Test-Case '自動検出の取り消し（除外）と辞書優先' {
     $s = New-MaskSession
     [void]$s.ExcludedValues.Add('03-1234-5678')
-    $r = Invoke-TextMask -Text '03-1234-5678、info@example.com' -Entries @((E 'info@example.com' 'COMPANY')) -Session $s -DetectEmail -DetectPhone
+    $r = Invoke-TextMask -Text '03-1234-5678、info@example.com' -Entries @((E 'info@example.com' 'COMPANY')) -Session $s -Detect EMAIL, PHONE
     Assert-Equal '03-1234-5678、[[COMPANY_01]]' $r.Text
 }
 
@@ -306,7 +306,65 @@ Test-Case '添削指示の付加' {
 Test-Case 'カテゴリ推定用のパターン判定' {
     Assert-Equal 'EMAIL' (Find-MaskPattern 'a.b@example.com')
     Assert-Equal 'PHONE' (Find-MaskPattern '090-1234-5678')
+    Assert-Equal 'PHONE' (Find-MaskPattern '０９０－１２３４－５６７８')
+    Assert-Equal 'URL' (Find-MaskPattern 'https://intra.example.co.jp/wiki')
+    Assert-Equal 'POSTAL' (Find-MaskPattern '123-4567')
+    Assert-Equal 'IP' (Find-MaskPattern '192.168.10.20')
+    Assert-Equal $null (Find-MaskPattern 'https://intra.example.co.jp/wiki。') '末尾の句読点を含めると完全一致しない'
     Assert-Equal $null (Find-MaskPattern '田中')
+}
+
+# 自動検出: 検出された値（Original）の一覧を返す
+function Get-Detected([string]$Text, [string[]]$Detect) {
+    $s = New-MaskSession
+    $r = Invoke-TextMask -Text $Text -Entries @() -Session $s -Detect $Detect
+    Assert-Equal $Text (Invoke-TextUnmask -Text $r.Text -Session $s).Text '往復で原文と一致'
+    return , @($r.Used | ForEach-Object Original)
+}
+
+Test-Case 'URL: 末尾の句読点・対応しない閉じ括弧・日本語の手前で止まる' {
+    $v = Get-Detected 'リンク https://example.com/a?b=1&c=(x) と http://foo.example/path。(www.example.jp/p) 詳細はhttps://example.org/日本語、ftp://files.example/x, https://example.net/end.' 'URL'
+    Assert-Equal 'https://example.com/a?b=1&c=(x)|http://foo.example/path|www.example.jp/p|https://example.org/|ftp://files.example/x|https://example.net/end' ($v -join '|')
+}
+
+Test-Case 'URL: スキームだけ・単語の途中・URL の中のメールアドレス' {
+    $v = Get-Detected 'http:// だけ、xhttps://no.example、https://user@mail.example.com/inbox と taro@example.com' 'URL', 'EMAIL'
+    Assert-Equal 'https://user@mail.example.com/inbox|taro@example.com' ($v -join '|')
+    $s = New-MaskSession
+    $r = Invoke-TextMask -Text 'https://user@mail.example.com/' -Entries @() -Session $s -Detect EMAIL, URL
+    Assert-Equal '[[URL_01]]' $r.Text 'URL の中のメールアドレスは URL として置換'
+}
+
+Test-Case '郵便番号: 〒 は残す・全角・〒 なしはハイフン付きのみ・電話番号と区別' {
+    $s = New-MaskSession
+    $r = Invoke-TextMask -Text '〒123-4567 東京都、〒 1234567、〒１２３－４５６７、本社 100-0001、品番 1234567、03-1234-5678' -Entries @() -Session $s -Detect POSTAL, PHONE
+    Assert-Equal '〒[[POSTAL_01]] 東京都、〒 [[POSTAL_02]]、〒[[POSTAL_03]]、本社 [[POSTAL_04]]、品番 1234567、[[PHONE_01]]' $r.Text
+    $v = Get-Detected '1234-5678、12-3456、123-45678、9123-4567、123-4567-8' 'POSTAL'
+    Assert-Equal 0 $v.Count ('誤検出: ' + ($v -join ', '))
+}
+
+Test-Case 'IP アドレス: IPv4・CIDR を検出し、範囲外・バージョン番号風は除外' {
+    $v = Get-Detected 'サーバー 192.168.0.1、ネットワーク 10.0.0.0/8、DNS 8.8.8.8。' 'IP'
+    Assert-Equal '192.168.0.1|10.0.0.0/8|8.8.8.8' ($v -join '|')
+    $v = Get-Detected '256.1.1.1、1.2.3.4.5、v1.2.3、01.02.03.04、192.168.1、1.2.3.456' 'IP'
+    Assert-Equal 0 $v.Count ('誤検出: ' + ($v -join ', '))
+}
+
+Test-Case '電話番号: 空白区切り・全角数字・各種ハイフン' {
+    $v = Get-Detected '携帯 090 1234 5678、固定 03 1234 5678、０３－１２３４－５６７８、03‐1234‐5678、03−1234−5678、０９０ー１２３４ー５６７８、+81 90 1234 5678、＋８１－３－１２３４－５６７８' 'PHONE'
+    Assert-Equal 8 $v.Count ($v -join ' | ')
+    $v = Get-Detected '2026 11 18、12 3456 7890、1234-5678-9012、0-1-2' 'PHONE'
+    Assert-Equal 0 $v.Count ('誤検出: ' + ($v -join ', '))
+}
+
+Test-Case '自動検出の種類の指定（不明な種類はエラー・未指定なら検出しない）' {
+    $s = New-MaskSession
+    $r = Invoke-TextMask -Text 'taro@example.com 03-1234-5678' -Entries @((E '該当なし')) -Session $s
+    Assert-Equal 'taro@example.com 03-1234-5678' $r.Text
+    $threw = $false
+    try { [void](Invoke-TextMask -Text 'a' -Entries @() -Session $s -Detect 'ZIP') } catch { $threw = $true }
+    Assert-True $threw
+    Assert-Equal 'EMAIL,PHONE,URL,POSTAL,IP' ((Get-TextMaskDetector | ForEach-Object Name) -join ',')
 }
 
 Write-Host ''
@@ -410,6 +468,29 @@ try {
         Assert-Equal 'default' (Import-TextMaskSettings -DataDirectory $tmp).lastProfile
     }
 
+    Test-Case '自動検出の種類の設定（既定・保存・旧形式の読み替え・不明な種類の除去）' {
+        Remove-Item -LiteralPath (Join-Path $tmp 'settings.json') -Force
+        Assert-Equal 'EMAIL,PHONE,URL,POSTAL,IP' (Import-TextMaskSettings -DataDirectory $tmp).detectTypes
+        Set-Content -LiteralPath (Join-Path $tmp 'settings.json') -Value '{ "detectPatterns": false }'
+        Assert-Equal '' (Import-TextMaskSettings -DataDirectory $tmp).detectTypes '旧設定で OFF なら検出なし'
+        Set-Content -LiteralPath (Join-Path $tmp 'settings.json') -Value '{ "detectPatterns": true }'
+        Assert-Equal 'EMAIL,PHONE,URL,POSTAL,IP' (Import-TextMaskSettings -DataDirectory $tmp).detectTypes
+        Set-Content -LiteralPath (Join-Path $tmp 'settings.json') -Value '{ "detectTypes": "ip, url,BOGUS,url" }'
+        Assert-Equal 'URL,IP' (Import-TextMaskSettings -DataDirectory $tmp).detectTypes
+        $s = Import-TextMaskSettings -DataDirectory $tmp
+        $s.detectTypes = ''
+        Export-TextMaskSettings -DataDirectory $tmp -Settings $s
+        Assert-Equal '' (Import-TextMaskSettings -DataDirectory $tmp).detectTypes '空（すべて無効）を保存できる'
+    }
+
+    Test-Case '辞書ファイルで新しいカテゴリ（URL / POSTAL / IP）を使える' {
+        $path = Get-TextMaskProfilePath -DataDirectory $tmp -Name 'newcat'
+        Set-Content -LiteralPath $path -Encoding utf8 -Value '{ "entries": [ { "original": "https://intra.example", "category": "URL" }, { "original": "100-0001", "category": "POSTAL" }, { "original": "10.0.0.1", "category": "IP" } ] }'
+        $p = Import-TextMaskProfile -DataDirectory $tmp -Name 'newcat'
+        Assert-Equal $null $p.Error
+        Assert-Equal 'URL,POSTAL,IP' (($p.Entries | ForEach-Object Category) -join ',')
+    }
+
     if ($Gui) {
         Write-Host ''
         Write-Host 'GUI（表示しないスモークテスト）' -ForegroundColor Cyan
@@ -453,6 +534,18 @@ try {
                     Add-Entry ([pscustomobject]@{ Original = '新宿支店'; Category = 'PLACE'; Persistent = $true })
                     $p = Import-TextMaskProfile -DataDirectory $S.DataDirectory -Name 'default'
                     if ($p.Entries.Count -ne 2) { throw '永続辞書に保存されない' }
+
+                    # 自動検出メニュー
+                    if ($C.DetectButton.Text -ne '自動検出: 5/5 ▼') { throw ('検出ボタンの表示: ' + $C.DetectButton.Text) }
+                    ($C.DetectItems | Where-Object Tag -EQ 'EMAIL').Checked = $false
+                    if ($C.DetectButton.Text -ne '自動検出: 4/5 ▼') { throw ('検出ボタンの表示: ' + $C.DetectButton.Text) }
+                    if ($C.Output.Text -notmatch 'mail: taro@example\.com') { throw 'メール検出を外しても再変換されない' }
+                    if (@(Get-EnabledDetectTypes) -contains 'EMAIL') { throw 'EMAIL が有効のまま' }
+                    Set-AllDetect $false
+                    if ($C.DetectButton.Text -ne '自動検出: 0/5 ▼') { throw ('すべて無効の表示: ' + $C.DetectButton.Text) }
+                    if (@(Get-EnabledDetectTypes).Count -ne 0) { throw 'すべて無効にならない' }
+                    Set-AllDetect $true
+                    if ($C.Output.Text -notmatch '\[\[EMAIL_01\]\]') { throw 'すべて有効で再検出されない' }
                 }
             }
             finally {

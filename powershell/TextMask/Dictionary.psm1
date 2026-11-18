@@ -25,7 +25,9 @@
 Set-StrictMode -Version 3.0
 
 # MaskEngine.psm1 と同じカテゴリ（このモジュール単体でも検証できるよう重複して持つ）
-$script:Categories = @('COMPANY', 'PERSON', 'PLACE', 'PRODUCT', 'PROJECT', 'EMAIL', 'PHONE', 'CUSTOM')
+$script:Categories = @('COMPANY', 'PERSON', 'PLACE', 'PRODUCT', 'PROJECT', 'EMAIL', 'PHONE', 'URL', 'POSTAL', 'IP', 'CUSTOM')
+# MaskEngine.psm1 の自動検出の種類（既定はすべて有効）
+$script:DetectTypes = @('EMAIL', 'PHONE', 'URL', 'POSTAL', 'IP')
 $script:SchemaVersion = 1
 $script:Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
@@ -226,7 +228,8 @@ function Export-TextMaskProfile {
 function Get-DefaultTextMaskSettings {
     [ordered]@{
         lastProfile    = 'default'
-        detectPatterns = $true
+        # 自動検出する種類（カンマ区切り。空なら検出しない）
+        detectTypes    = ($script:DetectTypes -join ',')
         attachPrompt   = $false
         windowWidth    = 1000
         windowHeight   = 720
@@ -251,9 +254,16 @@ function Import-TextMaskSettings {
                 elseif ($def -is [int] -and ($v -is [int] -or $v -is [long])) { $s[$k] = [int]$v }
                 elseif ($def -is [string] -and $v -is [string]) { $s[$k] = $v }
             }
+            # 旧形式（detectPatterns: メール・電話番号の検出 ON / OFF）からの読み替え
+            if ($null -eq (Get-JsonValue $json 'detectTypes') -and (Get-JsonValue $json 'detectPatterns') -eq $false) {
+                $s.detectTypes = ''
+            }
         }
         catch { }
     }
+    # 知らない種類は捨て、重複を除いて既定の並びに揃える
+    $wanted = @($s.detectTypes -split ',' | ForEach-Object { $_.Trim().ToUpperInvariant() })
+    $s.detectTypes = (@($script:DetectTypes | Where-Object { $wanted -contains $_ }) -join ',')
     if (-not (Test-TextMaskProfileName $s.lastProfile)) { $s.lastProfile = 'default' }
     if ($script:Categories -cnotcontains $s.lastCategory) { $s.lastCategory = 'PERSON' }
     return [pscustomobject]$s

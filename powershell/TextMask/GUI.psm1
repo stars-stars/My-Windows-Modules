@@ -301,7 +301,7 @@ function Update-Grid {
         }
         foreach ($m in $S.Session.Mappings.Values) {
             if ($listed.Contains($m.Original)) { continue }
-            if ($m.Source -in @('email', 'phone')) {
+            if ($m.Source -ne 'dictionary') {
                 $rows.Add(@{ Type = 'detected'; Entry = $null; Original = $m.Original; Category = $m.Category; Enabled = -not $S.Session.ExcludedValues.Contains($m.Original); Kind = '自動検出' })
             }
             else {
@@ -364,8 +364,7 @@ function Invoke-MaskConvert {
         $pre.Add((New-MaskMessage Warning '辞書ファイルを読み込めなかったため、永続辞書を使わずに変換しました。'))
     }
 
-    $detect = $C.Detect.Checked
-    $r = Invoke-TextMask -Text $text -Entries (Get-ActiveEntries) -Session $S.Session -DetectEmail:$detect -DetectPhone:$detect
+    $r = Invoke-TextMask -Text $text -Entries (Get-ActiveEntries) -Session $S.Session -Detect @(Get-EnabledDetectTypes)
     $buf.Result = $r
     $buf.Dirty = $false
     $buf.Messages = @($pre) + @($r.Errors) + @($r.Warnings)
@@ -418,6 +417,38 @@ function Invoke-RestoreConvert {
     $msg = '復元: {0} 箇所 / 警告 {1} 件' -f $r.Count, $w
     Set-Status $msg $(if ($w -gt 0) { 'warn' } else { 'ok' })
     return $true
+}
+
+function Get-EnabledDetectTypes {
+    # 呼び出し側で @() に包んで使う（0 件なら何も返さない）
+    $script:C.DetectItems | Where-Object Checked | ForEach-Object { [string]$_.Tag }
+}
+
+function Update-DetectButton {
+    $C = $script:C
+    $on = @(Get-EnabledDetectTypes).Count
+    $C.DetectButton.Text = '自動検出: {0}/{1} ▼' -f $on, $C.DetectItems.Count
+}
+
+function Show-DetectMenu {
+    $C = $script:C
+    $C.DetectMenu.Show($C.DetectButton, [System.Drawing.Point]::new(0, $C.DetectButton.Height))
+}
+
+function Invoke-DetectChanged {
+    if ($script:S.DetectBulk) { return }
+    Update-DetectButton
+    Invoke-AutoReconvert
+}
+
+function Set-AllDetect {
+    param([bool]$Value)
+    $S = $script:S
+    $S.DetectBulk = $true
+    try { foreach ($item in $script:C.DetectItems) { $item.Checked = $Value } }
+    finally { $S.DetectBulk = $false }
+    Update-DetectButton
+    Invoke-AutoReconvert
 }
 
 function Invoke-Convert {
@@ -1059,7 +1090,7 @@ function Invoke-FormClosing {
         $st.windowWidth = [int]($C.Form.Width / $S.Scale)
         $st.windowHeight = [int]($C.Form.Height / $S.Scale)
     }
-    $st.detectPatterns = $C.Detect.Checked
+    $st.detectTypes = @(Get-EnabledDetectTypes) -join ','
     $st.attachPrompt = $C.Prompt.Checked
     try { Export-TextMaskSettings -DataDirectory $S.DataDirectory -Settings $st } catch { }
 }
@@ -1121,6 +1152,7 @@ function New-TextMaskForm {
         Suppress         = $false
         Loading          = $false
         GridUpdating     = $false
+        DetectBulk       = $false
         Scale            = $scale
         UiFont           = [System.Drawing.Font]::new('Meiryo UI', 10)
         TextFont         = [System.Drawing.Font]::new('Meiryo UI', 11)
@@ -1184,13 +1216,29 @@ function New-TextMaskForm {
     $cbProfile.Add_SelectedIndexChanged({ Invoke-UiAction { Invoke-ProfileChanged } })
     $C.Profile = $cbProfile
 
-    $chkDetect = [System.Windows.Forms.CheckBox]::new()
-    $chkDetect.Text = 'メール・電話番号を自動検出'
-    $chkDetect.AutoSize = $true
-    $chkDetect.Margin = [System.Windows.Forms.Padding]::new(12, 7, 3, 3)
-    $chkDetect.Checked = [bool]$settings.detectPatterns
-    $chkDetect.Add_CheckedChanged({ Invoke-UiAction { Invoke-AutoReconvert } })
-    $C.Detect = $chkDetect
+    # 自動検出: ボタンでチェック付きメニューを開き、種類ごとに有効 / 無効を切り替える
+    $enabledTypes = @($settings.detectTypes -split ',' | Where-Object { $_ })
+    $menuDetect = [System.Windows.Forms.ContextMenuStrip]::new()
+    $detectItems = [System.Collections.Generic.List[object]]::new()
+    foreach ($det in Get-TextMaskDetector) {
+        $item = [System.Windows.Forms.ToolStripMenuItem]::new($det.Label)
+        $item.Tag = $det.Name
+        $item.CheckOnClick = $true
+        $item.Checked = ($enabledTypes -contains $det.Name)
+        $item.Add_CheckedChanged({ Invoke-UiAction { Invoke-DetectChanged } })
+        [void]$menuDetect.Items.Add($item)
+        $detectItems.Add($item)
+    }
+    [void]$menuDetect.Items.Add([System.Windows.Forms.ToolStripSeparator]::new())
+    [void]$menuDetect.Items.Add('すべて有効', $null, { Invoke-UiAction { Set-AllDetect $true } })
+    [void]$menuDetect.Items.Add('すべて無効', $null, { Invoke-UiAction { Set-AllDetect $false } })
+    # 項目をクリックしてもメニューを閉じない（続けて切り替えられるように）
+    $menuDetect.Add_Closing({ param($s, $e) if ($e.CloseReason -eq 'ItemClicked') { $e.Cancel = $true } })
+    $C.DetectMenu = $menuDetect
+    $C.DetectItems = $detectItems
+    $C.DetectButton = New-Button '自動検出' { Invoke-UiAction { Show-DetectMenu } }
+    $C.DetectButton.Margin = [System.Windows.Forms.Padding]::new(12, 3, 3, 3)
+    Update-DetectButton
 
     $chkPrompt = [System.Windows.Forms.CheckBox]::new()
     $chkPrompt.Text = '添削指示を付加'
@@ -1208,7 +1256,7 @@ function New-TextMaskForm {
             $rbMask, $rbRestore,
             (New-Label '  プロファイル:'), $cbProfile,
             (New-Button '新規...' { Invoke-UiAction { Invoke-NewProfile } }),
-            $chkDetect, $chkPrompt,
+            $C.DetectButton, $chkPrompt,
             (New-Button '新しいセッション' { Invoke-UiAction { Reset-Session } }),
             (New-Button 'クリップボード消去' { Invoke-UiAction { Invoke-ClearClipboard } }),
             $lblSession
