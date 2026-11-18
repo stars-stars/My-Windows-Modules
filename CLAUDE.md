@@ -68,6 +68,14 @@ MSYS_NO_PATHCONV=1 "/c/Program Files/AutoHotkey/v2/AutoHotkey64.exe" \
 - 対話的スクリプト（`Rename-ByRegex.ps1`、`Connect-SshHost.ps1`、`Connect-AndroidWirelessDebugging.ps1` など）や
   管理者権限が必要なスクリプト（`Show-WifiPassword.ps1`、`Switch-TouchScreen.ps1`）は、
   プロンプト待ち・UAC ダイアログ・Windows Forms ウィンドウが出るため自動実行しない。
+- `Start-TextMask.ps1`（TextMask）は WinForms ウィンドウを開くので実行しない。検証は次のテストで行う
+  （`-Gui` はフォームを表示せずに組み立て、`$script:ThrowUiErrors` でダイアログを例外に置き換える）。
+  GUI.psm1 に新しくダイアログ表示を追加するときは、同じフラグで抑止すること。
+
+  ```powershell
+  pwsh -NoProfile -STA -File .\powershell\TextMask\tests\Test-TextMask.ps1 -Gui
+  ```
+
 - `MsgBox` / `[System.Windows.Forms.MessageBox]` / `Read-Host` を検証目的で追加しない。
   デバッグ出力は `OutputDebug`（AHK）や `Write-Host`（PowerShell）を使う。
 

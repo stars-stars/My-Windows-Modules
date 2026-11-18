@@ -8,6 +8,7 @@ Windows 環境で日常的に使っている PowerShell / AutoHotkey スクリ�
 ```
 bin/
 ├── powershell/   PowerShell スクリプト（.ps1）
+│   └── TextMask/ Start-TextMask.ps1 が読み込むモジュールとテスト
 └── autohotkey/   AutoHotkey v2 スクリプト（.ahk）
 ```
 
@@ -39,6 +40,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`powershell/Switch-TouchScreen.ps1`](#switch-touchscreenps1) | タッチスクリーンの有効 / 無効を切り替え | 管理者権限 |
 | [`powershell/Show-ScriptList.ps1`](#show-scriptlistps1) | このディレクトリのスクリプト一覧を説明付きで表示（Ctrl+Shift+? に割り当て可） | — |
 | [`powershell/Copy-FileToClipboard.ps1`](#copy-filetoclipboardps1) | ファイルをエクスプローラーの Ctrl+C と同じ形でクリップボードにコピー | — |
+| [`powershell/Start-TextMask.ps1`](#start-textmaskps1) | 会社名・人名を識別子に置き換えて外部 AI に渡し、回答を元に戻す GUI（TextMask） | PowerShell 7+, 辞書 JSON |
 | [`autohotkey/StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`autohotkey/IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`autohotkey/DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
@@ -235,6 +237,101 @@ Get-ChildItem -Filter *.log | Copy-FileToClipboard.ps1
 ```
 
 クリップボードの操作には STA モードが必要です（通常の `pwsh` / `powershell` は STA で起動します）。
+
+### `Start-TextMask.ps1`
+
+ChatGPT や Claude などの外部 AI に文章の添削を頼む前に、会社名・人名・拠点名などを
+`[[COMPANY_01]]` のような識別子にローカルで置き換え（マスキング）、AI の回答を元の名称に戻す（復元）GUI です。
+ネットワーク通信は一切行いません。AI への送信はクリップボード経由で自分で行います。
+設計は [`TextMask_specification.md`](TextMask_specification.md) を参照してください。
+
+```text
+原文      株式会社サンプルの田中様へ、新宿支店の件について確認をお願いします。
+マスキング [[COMPANY_01]]の[[PERSON_01]]様へ、[[PLACE_01]]の件について確認をお願いします。
+AI の回答 [[COMPANY_01]]の[[PERSON_01]]様へ、[[PLACE_01]]の件につきまして、ご確認をお願いいたします。
+復元      株式会社サンプルの田中様へ、新宿支店の件につきまして、ご確認をお願いいたします。
+```
+
+```powershell
+Start-TextMask.ps1                     # 起動（前回のプロファイル）
+Start-TextMask.ps1 -Clipboard          # クリップボードの文章を読み込んで起動
+Start-TextMask.ps1 -Profile work       # プロファイル（辞書）を指定
+Start-TextMask.ps1 -Detach             # 別プロセスで開き、すぐプロンプトに戻る
+```
+
+`$PROFILE` に次を書いておくと `mask` で起動できます（専用の子プロセスで動くので、閉じると一時データがプロセスごと消えます）。
+
+```powershell
+function mask { pwsh -NoProfile -STA -File "$HOME\programing\Windows\bin\powershell\Start-TextMask.ps1" @args }
+```
+
+**使い方**
+
+1. 「マスキング」モードで原文を貼り付ける（`貼り付け` ボタン / `Ctrl+V`。書式は捨ててプレーンテキストになる）
+2. 置換したい語を選択して `Ctrl+D`（右クリックメニューや `選択範囲を登録` でも可）。カテゴリと
+   **一時**（このセッションだけ・保存しない）/ **永続**（辞書ファイルに保存）を選ぶ
+3. `Ctrl+Enter`（マスキングしてコピー）→ AI に貼り付けて添削を依頼
+4. AI の回答をコピーし、「復元」モードに切り替えて貼り付け → `Ctrl+Enter`（復元してコピー）
+5. 作業が終わったら `新しいセッション` か、ウィンドウを閉じる（`Esc`）
+
+- 入力欄では置換箇所が黄、出力欄では識別子が緑でハイライトされます。復元時は未知の識別子が赤、書式の崩れた識別子が橙です。
+- 警告・エラー欄の行をダブルクリックすると、入力欄の該当箇所が選択されます。
+- `メール・電話番号を自動検出` を有効にすると、メールアドレスと日本の電話番号（`03-1234-5678`、`090-1234-5678`、`+81-3-1234-5678` など）を値ごとに別の識別子へ置き換えます。誤検出は辞書の一覧でチェックを外すと除外できます。
+- `添削指示を付加` を有効にすると、「識別子を変更・省略しないで」という指示文を付けた形でコピーします（出力欄に表示されているものがそのままコピーされます）。
+- 辞書の一覧の「対応表のみ」は、辞書から削除したが、このセッションで識別子を発行済みの項目です（送信済みの文章を復元するために残ります）。
+
+**置換の規則**
+
+- 辞書は文字どおりに一致させます（大文字・小文字を区別、`.` や `(` などもそのまま）。大文字・小文字や全角・半角だけが違う表記が残っていると警告します。
+- 重なる候補は「左にある方」→「長い方」→「辞書（自動検出より優先）」の順で採用します。`株式会社サンプル` と `サンプル` を両方登録すると前者が優先されます。
+- 同じセッションでは、同じ語に必ず同じ識別子を割り当てます。辞書を後から編集・削除しても、発行済みの識別子は元の語に戻せます。
+- 原文に `[[XXX_01]]` 形式の文字列が元からある場合は置換せず、同じ番号は発行しません。発行済みの識別子を含む文章（マスキング済みの文章など）をもう一度マスキングしようとするとエラーにします。
+- 復元時、対応表にない識別子や書式の崩れた識別子（`［［COMPANY_01］］`、`[COMPANY_01]`、`COMPANY_01` など）は推測で戻さずにそのまま残して警告します。マスキング時にあった識別子が回答から消えた / 回数が変わった場合も警告します。
+
+**データの置き場所**
+
+永続辞書と設定は **リポジトリの外の `../data/textmask/`**（スクリプトから見て `../../data/textmask/`）に保存されます。
+
+```
+data/textmask/
+├── settings.json          ウィンドウサイズ・チェック状態など（機密情報なし）
+└── profiles/
+    ├── default.json       永続辞書（平文 JSON）
+    └── work.json
+```
+
+辞書はエディタで直接編集できます（`フォルダを開く` → 編集後に `再読込`）。
+
+```json
+{
+  "schemaVersion": 1,
+  "profile": "default",
+  "entries": [
+    { "original": "株式会社サンプル", "category": "COMPANY", "enabled": true },
+    { "original": "新宿支店", "category": "PLACE", "enabled": true }
+  ]
+}
+```
+
+`category` は `COMPANY` `PERSON` `PLACE` `PRODUCT` `PROJECT` `EMAIL` `PHONE` `CUSTOM` のいずれかです（省略時は `CUSTOM`、`enabled` の省略時は `true`）。
+JSON が壊れている場合は読み込まずに警告し、修正されるまで上書き保存しません。
+
+**セキュリティ上の注意**
+
+- 永続辞書は**平文**で保存されます（設計書では DPAPI 暗号化を推奨していましたが、エディタで編集でき別 PC にも持ち出せるよう平文にしています）。`data/` を同期・共有する場合は中身に注意してください。
+- 一時辞書と対応表はメモリ上にだけあり、ファイルには書きません。ウィンドウを閉じると失われ、**別のウィンドウ・プロセスからは復元できません**（未復元のまま閉じようとすると確認が出ます）。
+- 入力文章・変換結果・履歴はファイルに保存しません。
+- コピー時は Windows のクリップボード履歴（Win+V）・クラウド同期・監視ツールの対象外にするよう要求します（`CanIncludeInClipboardHistory` などの形式）。他のアプリで先にコピーした原文や、対応していないクリップボード管理ツールは制御できません。`クリップボード消去` で現在の内容は消せますが、履歴に残ったものは Win+V から削除してください。
+- これは可逆的な仮名化の補助ツールで、完全な匿名化を保証するものではありません。名称を消しても文脈（事業内容・数値・役職など）から特定される可能性があります。組織の規程で外部 AI への入力が禁止されている情報は、マスキングしても送らないでください。
+
+**テスト**（GUI を表示せずに実行されます。`-Gui` はフォームを非表示のまま組み立てて内部処理を確認します）
+
+```powershell
+pwsh -NoProfile -STA -File .\powershell\TextMask\tests\Test-TextMask.ps1 -Gui
+```
+
+モジュール構成: `TextMask/MaskEngine.psm1`（置換・復元・検証）、`Dictionary.psm1`（辞書 JSON・設定）、
+`Clipboard.psm1`（クリップボード）、`GUI.psm1`（WinForms）。
 
 ### `StorageBar.ahk`
 
