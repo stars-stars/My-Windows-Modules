@@ -1134,8 +1134,17 @@ function New-TextMaskForm {
     $form.Font = $S.UiFont
     $form.StartPosition = 'CenterScreen'
     $form.KeyPreview = $true
-    $form.MinimumSize = [System.Drawing.Size]::new([int](820 * $scale), [int](600 * $scale))
-    $form.Size = [System.Drawing.Size]::new([int]($settings.windowWidth * $scale), [int]($settings.windowHeight * $scale))
+    # 保存したサイズ（既定 1000x720、96 DPI 換算）を DPI に合わせ、作業領域の 90% を超えないようにする
+    $area = [System.Drawing.Rectangle]::new(0, 0, 1280, 800)
+    try { $area = [System.Windows.Forms.Screen]::FromPoint([System.Windows.Forms.Cursor]::Position).WorkingArea } catch { }
+    $maxW = [int]($area.Width * 0.9)
+    $maxH = [int]($area.Height * 0.9)
+    $minW = [Math]::Min([int](720 * $scale), $maxW)
+    $minH = [Math]::Min([int](520 * $scale), $maxH)
+    $w = [Math]::Max($minW, [Math]::Min([int]($settings.windowWidth * $scale), $maxW))
+    $h = [Math]::Max($minH, [Math]::Min([int]($settings.windowHeight * $scale), $maxH))
+    $form.MinimumSize = [System.Drawing.Size]::new($minW, $minH)
+    $form.Size = [System.Drawing.Size]::new($w, $h)
     $C.Form = $form
 
     $root = [System.Windows.Forms.TableLayoutPanel]::new()
@@ -1216,9 +1225,10 @@ function New-TextMaskForm {
     $upper.Dock = 'Fill'
     $upper.ColumnCount = 1
     $upper.RowCount = 3
+    # 行: 入力・出力 / ボタン / 警告・エラー
     [void]$upper.RowStyles.Add([System.Windows.Forms.RowStyle]::new('Percent', 100))
-    [void]$upper.RowStyles.Add([System.Windows.Forms.RowStyle]::new('Absolute', [int](110 * $scale)))
     [void]$upper.RowStyles.Add([System.Windows.Forms.RowStyle]::new('AutoSize'))
+    [void]$upper.RowStyles.Add([System.Windows.Forms.RowStyle]::new('Absolute', [int](100 * $scale)))
 
     $textSplit = [System.Windows.Forms.SplitContainer]::new()
     $textSplit.Dock = 'Fill'
@@ -1299,8 +1309,8 @@ function New-TextMaskForm {
         ))
 
     $upper.Controls.Add($textSplit, 0, 0)
-    $upper.Controls.Add($grpMsg, 0, 1)
-    $upper.Controls.Add($btnRow, 0, 2)
+    $upper.Controls.Add($btnRow, 0, 1)
+    $upper.Controls.Add($grpMsg, 0, 2)
     $mainSplit.Panel1.Controls.Add($upper)
 
     # --- 下段: 辞書 ---

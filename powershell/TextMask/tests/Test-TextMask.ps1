@@ -424,6 +424,13 @@ try {
             $form = New-TextMaskForm -DataDirectory $guiDir -InitialText "株式会社サンプルの田中様`r`nmail: taro@example.com"
             try {
                 Assert-True (-not $form.Visible) 'ウィンドウは表示しない'
+                $wa = [System.Windows.Forms.Screen]::FromPoint([System.Windows.Forms.Cursor]::Position).WorkingArea
+                Assert-True ($form.Width -le $wa.Width -and $form.Height -le $wa.Height) ('初期サイズが作業領域に収まる: {0}x{1} / {2}x{3}' -f $form.Width, $form.Height, $wa.Width, $wa.Height)
+                & $guiModule {
+                    $C = $script:C
+                    $upper = $C.MessagesGroup.Parent
+                    if ($upper.GetRow($C.ConvertCopy.Parent) -ge $upper.GetRow($C.MessagesGroup)) { throw 'ボタン行が警告・エラー欄より上にない' }
+                }
                 & $guiModule {
                     $C = $script:C; $S = $script:S
                     if (-not (Invoke-MaskConvert)) { throw 'マスキングに失敗' }

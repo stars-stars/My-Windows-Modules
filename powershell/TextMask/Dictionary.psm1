@@ -228,8 +228,8 @@ function Get-DefaultTextMaskSettings {
         lastProfile    = 'default'
         detectPatterns = $true
         attachPrompt   = $false
-        windowWidth    = 1180
-        windowHeight   = 860
+        windowWidth    = 1000
+        windowHeight   = 720
         lastCategory   = 'PERSON'
         lastPersistent = $false
     }
