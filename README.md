@@ -8,7 +8,8 @@ Windows 環境で日常的に使っている PowerShell / AutoHotkey スクリ�
 ```
 bin/
 ├── powershell/   PowerShell スクリプト（.ps1）
-│   └── TextMask/ Start-TextMask.ps1 が読み込むモジュールとテスト
+│   ├── TextMask/ Start-TextMask.ps1 が読み込むモジュールとテスト
+│   └── InstallmentSimulator/ Start-InstallmentSimulator.ps1 が読み込むモジュールとテスト
 └── autohotkey/   AutoHotkey v2 スクリプト（.ahk）
 ```
 
@@ -41,6 +42,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 | [`powershell/Show-ScriptList.ps1`](#show-scriptlistps1) | このディレクトリのスクリプト一覧を説明付きで表示（Ctrl+Shift+? に割り当て可） | — |
 | [`powershell/Copy-FileToClipboard.ps1`](#copy-filetoclipboardps1) | ファイルをエクスプローラーの Ctrl+C と同じ形でクリップボードにコピー | — |
 | [`powershell/Start-TextMask.ps1`](#start-textmaskps1) | 会社名・人名を識別子に置き換えて外部 AI に渡し、回答を元に戻す GUI（TextMask） | PowerShell 7+, 辞書 JSON |
+| [`powershell/Start-InstallmentSimulator.ps1`](#start-installmentsimulatorps1) | クレカ請求明細 CSV を読み、分割払いにしたときの毎月の請求額と手数料を試算する GUI | PowerShell 7+, 明細 CSV |
 | [`autohotkey/StorageBar.ahk`](#storagebarahk) | タスクバー左端にドライブの使用量・空き容量を常時表示 | AutoHotkey v2 |
 | [`autohotkey/IMEKeySwitch.ahk`](#imekeyswitchahk) | 変換 / 無変換キーを IME の ON / OFF 専用キーにする | AutoHotkey v2 |
 | [`autohotkey/DisplayOff.ahk`](#displayoffahk) | Win + Backspace で画面を暗転する（ロックしない疑似消灯） | AutoHotkey v2 |
@@ -340,6 +342,84 @@ pwsh -NoProfile -STA -File .\powershell\TextMask\tests\Test-TextMask.ps1 -Gui
 
 モジュール構成: `TextMask/MaskEngine.psm1`（置換・復元・検証）、`Dictionary.psm1`（辞書 JSON・設定）、
 `Clipboard.psm1`（クリップボード）、`GUI.psm1`（WinForms）。
+
+### `Start-InstallmentSimulator.ps1`
+
+クレジットカードの請求明細 CSV を読み込み、1 回払いの明細を分割払いに変えたら
+今月・来月以降の請求額と手数料がどう変わるかを試算する GUI です。ネットワーク通信は行いません。
+
+```powershell
+Start-InstallmentSimulator.ps1                    # 前回の明細（なければ明細フォルダの最新の月）を開く
+Start-InstallmentSimulator.ps1 -CsvPath .\x.csv   # 最初に開く明細を指定（明細フォルダの外でも可）
+Start-InstallmentSimulator.ps1 -Detach            # 別プロセスで開き、すぐプロンプトに戻る
+```
+
+**使い方**
+
+0. 毎月の明細 CSV を `data/installment-simulator/statements/` に `yyyyMM.csv` の名前で置き、上部の `明細` リストで試算する月を選ぶ
+   - 月を切り替えても、それぞれの月で選んだ回数と選択中（✓）はウィンドウを閉じるまで覚えている（ファイルには保存しない）
+   - `再読込` で明細フォルダを読み直す（CSV を追加・更新したとき）。`フォルダを開く` で明細フォルダをエクスプローラーで開く
+   - 閉じるときに開いていた月を保存し、次回はその月から開く
+1. 明細の「支払回数」を選ぶ（1・2・3・5・6・10・12・15・18・20・24 回）と、すぐに再計算される
+2. 複数の明細をまとめて変えるときは、行を **選択中（✓）** にしてから `まとめて` の回数 → `選択中に適用`
+   - 行をダブルクリックすると選択中（✓、青い行）になり、もう一度ダブルクリックで解除（支払回数の列はドロップダウン用なので除く）
+   - ほかのセルをクリックしても、並べ替えても選択中は消えないので、離れた行を 1 行ずつ選べる
+   - マウスでドラッグして範囲選択している途中（または Ctrl / Shift で選んだあと）に `Space` を押すと、その範囲の行をまとめて選択中にする
+   - `選択を解除` で選択中をすべて外す。返品・既存の分割払いの行は選択中にできない
+   - 選択中の行がないときは、いまハイライトしている行に適用する。`すべてに適用`（変更できる明細すべて）/ `リセット`（すべて 1 回）もある
+3. 下段で変更前（明細どおり）と変更後を比べる
+   - サマリー: 今月の請求額と差額、手数料の合計、支払総額、月の最大請求額、支払いが終わる月
+   - 月別の請求額: 表（差額・うち手数料）とグラフ
+4. `実質年率` を変えると再計算する（既定 15.00%。閉じるときに保存）
+5. 明細は列見出しのクリック（もう一度クリックで昇順 / 降順を切り替え）か、上部の `並べ替え` リストで並べ替えられる
+   - リスト: 明細の順（CSV のまま）・日付の新しい順 / 古い順・金額の大きい順 / 小さい順・手数料の大きい順・今月の請求分の大きい順・利用先の名前順・区分順・選択中（✓）の行が先
+   - 数値・日付の列は最初のクリックで大きい順 / 新しい順。手数料など値のない行（変更できない明細）は常に末尾
+   - 回数を変えても自動では並べ直しません（編集中の行が動かないように）。並べ替えは閉じるときに保存
+
+- 返品（マイナス）と、すでに分割払いになっている明細は変更できません（灰色）。既存の分割払いは残りの回も今回と同じ額で計上します。
+- 利用先にマウスを乗せると備考（外貨の金額・レートなど）が出ます。
+- 明細の合計が CSV の合計行と一致しないときは、画面下に警告を出します。
+
+**計算方法**（元利均等方式。三井住友カード系の「100 円あたりの分割払い手数料」表と同じ値になります）
+
+- 月利 r = 年率 / 12、100 円あたり手数料 = (n·r / (1 − (1+r)^−n) − 1) × 100（小数第 2 位）。15% なら 3 回 2.51 円、6 回 4.42 円、12 回 8.31 円、24 回 16.37 円
+- 手数料 = 利用金額 × 係数 / 100（円未満切り捨て）。各回 = (利用金額 + 手数料) / n の切り捨てで、端数は初回に加算
+- 1・2 回払いは手数料なし。分割にした明細は今月の請求から 1 回目が始まる（あとから分割を想定）
+- 概算です。実際の手数料・各回の金額はカード会社の確定額に従います。
+
+**明細 CSV の形式**（Amazon Mastercard などの明細ダウンロード。Shift_JIS、数字は全角でも可）
+
+```
+氏名,カード番号（マスク済み）,カード名
+利用日,利用先,利用金額,支払回数,今回回数,今回請求額,備考
+…
+,,,,,合計,
+```
+
+ファイル名の先頭 `yyyyMM` を請求月として使います（例: `202611.csv` → 2026 年 11 月請求）。1 行目の氏名は読み込みません。
+
+**データの置き場所**
+
+```
+data/installment-simulator/
+├── settings.json                 実質年率・支払回数の選択肢・ウィンドウサイズ（96 DPI 換算）・並べ替え・前回の明細
+└── statements/                   明細 CSV（請求月ごとに 1 ファイル。リストには新しい月から並ぶ）
+    ├── 202611.csv
+    └── 202612.csv
+```
+
+ファイル名に `yyyyMM` がない CSV もリストに出ます（年月のあるものの後ろ。請求月は実行した日の月として扱います）。
+
+`settings.json` の `counts` を編集すると支払回数の選択肢を変えられます（1 は常に含まれます）。
+
+**テスト**（架空の明細を一時ディレクトリに書いて検証します。`-Gui` はフォームを表示せずに組み立てて再計算・グラフ描画を確認します）
+
+```powershell
+pwsh -NoProfile -STA -File .\powershell\InstallmentSimulator\tests\Test-InstallmentSimulator.ps1 -Gui
+```
+
+モジュール構成: `InstallmentSimulator/Statement.psm1`（CSV 読み込み）、`Calculator.psm1`（手数料・月別スケジュール）、
+`GUI.psm1`（WinForms）。
 
 ### `StorageBar.ahk`
 

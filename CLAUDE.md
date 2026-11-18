@@ -76,6 +76,13 @@ MSYS_NO_PATHCONV=1 "/c/Program Files/AutoHotkey/v2/AutoHotkey64.exe" \
   pwsh -NoProfile -STA -File .\powershell\TextMask\tests\Test-TextMask.ps1 -Gui
   ```
 
+- `Start-InstallmentSimulator.ps1`（分割払いシミュレーター）も WinForms ウィンドウを開くので実行しない。
+  検証は同じ形式のテストで行う（`Set-InstallmentSimulatorTestMode` でダイアログを例外に置き換える）。
+
+  ```powershell
+  pwsh -NoProfile -STA -File .\powershell\InstallmentSimulator\tests\Test-InstallmentSimulator.ps1 -Gui
+  ```
+
 - `MsgBox` / `[System.Windows.Forms.MessageBox]` / `Read-Host` を検証目的で追加しない。
   デバッグ出力は `OutputDebug`（AHK）や `Write-Host`（PowerShell）を使う。
 
