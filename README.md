@@ -92,6 +92,8 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 `-CaseSensitive` `-Pattern` `-Replacement` `-NoLog` `-LogDirectory` `-Help`
 （`-WhatIf` / `-Confirm` に対応）
 
+---
+
 ### `Undo-RenameLog.ps1`
 
 `Rename-ByRegex.ps1` が書き出した JSON ログを読み、リネームを巻き戻します。
@@ -111,6 +113,8 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 主なパラメータ: `-LogPath` `-LogDirectory` `-List`（`-WhatIf` / `-Confirm` に対応）
 
+---
+
 ### `Connect-SshHost.ps1`
 
 SSH 接続先を Windows フォームの一覧（Out-GridView 風）から選んで接続します。
@@ -124,6 +128,8 @@ SSH 接続先を Windows フォームの一覧（Out-GridView 風）から選ん
 Name,Host,User,Port
 MyServer,192.168.0.10,myuser,22
 ```
+
+---
 
 ### `Connect-AndroidWirelessDebugging.ps1`
 
@@ -146,6 +152,8 @@ Connect-AndroidWirelessDebugging.ps1 -Mode Tailscale              # Tailscale �
 Connect-AndroidWirelessDebugging.ps1 -Mode Lan -Ip 192.168.1.23   # IP を指定
 ```
 
+---
+
 ### `Find-LanHost.ps1`
 
 デフォルトルート（複数ある場合はメトリック最小のもの）から自分の IPv4 アドレスを自動検出し、
@@ -161,6 +169,8 @@ Connect-AndroidWirelessDebugging.ps1 -Mode Lan -Ip 192.168.1.23   # IP を指定
 # 1 host(s) found.
 ```
 
+---
+
 ### `Show-WifiPassword.ps1`
 
 現在接続中の Wi-Fi の SSID とパスワードを `netsh` 経由で取得して表示します。
@@ -168,6 +178,8 @@ Connect-AndroidWirelessDebugging.ps1 -Mode Lan -Ip 192.168.1.23   # IP を指定
 日本語環境（`主要なコンテンツ`）の両方に対応しています。
 
 > パスワードの取得には管理者権限が必要な場合があります。
+
+---
 
 ### `Show-DirectorySize.ps1`
 
@@ -181,6 +193,8 @@ Connect-AndroidWirelessDebugging.ps1 -Mode Lan -Ip 192.168.1.23   # IP を指定
 .\Show-DirectorySize.ps1 -Dir C:\tmp  # 指定したディレクトリ
 ```
 
+---
+
 ### `Switch-TouchScreen.ps1`
 
 `Intel(R) Precise Touch Device` の有効 / 無効を切り替えます。
@@ -190,6 +204,8 @@ Connect-AndroidWirelessDebugging.ps1 -Mode Lan -Ip 192.168.1.23   # IP を指定
 > 切り替え後の状態（ON / OFF）を元のコンソールに表示します。デバイス名が決め打ちなので、
 > 別のタッチデバイスを使っている場合はスクリプト冒頭の `FriendlyName` を
 > 書き換えてください（`Get-PnpDevice -Class HIDClass` で確認できます）。
+
+---
 
 ### `Show-ScriptList.ps1`
 
@@ -220,6 +236,8 @@ Set-PSReadLineKeyHandler -Chord 'Ctrl+?' -BriefDescription ShowScriptList `
 > キーを押しても反応しない場合は、`Alt+?` に続けて `Ctrl+Shift+?` を押すと、
 > PSReadLine がそのキーをどう受け取っているかを確認できます。
 
+---
+
 ### `Copy-FileToClipboard.ps1`
 
 ファイル / フォルダを、エクスプローラーで `Ctrl+C` したのと同じ形（ファイルドロップリスト）で
@@ -240,12 +258,13 @@ Get-ChildItem -Filter *.log | Copy-FileToClipboard.ps1
 
 クリップボードの操作には STA モードが必要です（通常の `pwsh` / `powershell` は STA で起動します）。
 
+---
+
 ### `Start-TextMask.ps1`
 
 ChatGPT や Claude などの外部 AI に文章の添削を頼む前に、会社名・人名・拠点名などを
 `[[COMPANY_01]]` のような識別子にローカルで置き換え（マスキング）、AI の回答を元の名称に戻す（復元）GUI です。
 ネットワーク通信は一切行いません。AI への送信はクリップボード経由で自分で行います。
-設計は [`TextMask_specification.md`](TextMask_specification.md) を参照してください。
 
 ```text
 原文      株式会社サンプルの田中様へ、新宿支店の件について確認をお願いします。
@@ -267,7 +286,7 @@ Start-TextMask.ps1 -Detach             # 別プロセスで開き、すぐプロ
 function mask { pwsh -NoProfile -STA -File "$HOME\programing\Windows\bin\powershell\Start-TextMask.ps1" @args }
 ```
 
-**使い方**
+#### 使い方
 
 1. 「マスキング」モードで原文を貼り付ける（`貼り付け` ボタン / `Ctrl+V`。書式は捨ててプレーンテキストになる）
 2. 置換したい語を選択して `Ctrl+D`（右クリックメニューや `選択範囲を登録` でも可）。カテゴリと
@@ -290,7 +309,7 @@ function mask { pwsh -NoProfile -STA -File "$HOME\programing\Windows\bin\powersh
 - `添削指示を付加` を有効にすると、「識別子を変更・省略しないで」という指示文を付けた形でコピーします（出力欄に表示されているものがそのままコピーされます）。
 - 辞書の一覧の「対応表のみ」は、辞書から削除したが、このセッションで識別子を発行済みの項目です（送信済みの文章を復元するために残ります）。
 
-**置換の規則**
+#### 置換の規則
 
 - 辞書は文字どおりに一致させます（大文字・小文字を区別、`.` や `(` などもそのまま）。大文字・小文字や全角・半角だけが違う表記が残っていると警告します。
 - 重なる候補は「左にある方」→「長い方」→「辞書（自動検出より優先）」の順で採用します。`株式会社サンプル` と `サンプル` を両方登録すると前者が優先されます。
@@ -298,7 +317,7 @@ function mask { pwsh -NoProfile -STA -File "$HOME\programing\Windows\bin\powersh
 - 原文に `[[XXX_01]]` 形式の文字列が元からある場合は置換せず、同じ番号は発行しません。発行済みの識別子を含む文章（マスキング済みの文章など）をもう一度マスキングしようとするとエラーにします。
 - 復元時、対応表にない識別子や書式の崩れた識別子（`［［COMPANY_01］］`、`[COMPANY_01]`、`COMPANY_01` など）は推測で戻さずにそのまま残して警告します。マスキング時にあった識別子が回答から消えた / 回数が変わった場合も警告します。
 
-**データの置き場所**
+#### データの置き場所
 
 永続辞書と設定は **リポジトリの外の `../data/textmask/`**（スクリプトから見て `../../data/textmask/`）に保存されます。
 
@@ -326,15 +345,17 @@ data/textmask/
 `category` は `COMPANY` `PERSON` `PLACE` `PRODUCT` `PROJECT` `EMAIL` `PHONE` `URL` `POSTAL` `IP` `CUSTOM` のいずれかです（省略時は `CUSTOM`、`enabled` の省略時は `true`）。
 JSON が壊れている場合は読み込まずに警告し、修正されるまで上書き保存しません。
 
-**セキュリティ上の注意**
+#### セキュリティ上の注意
 
-- 永続辞書は**平文**で保存されます（設計書では DPAPI 暗号化を推奨していましたが、エディタで編集でき別 PC にも持ち出せるよう平文にしています）。`data/` を同期・共有する場合は中身に注意してください。
+- 永続辞書は**平文**で保存されます（DPAPI で暗号化する案もありましたが、エディタで編集でき別 PC にも持ち出せるよう平文にしています）。`data/` を同期・共有する場合は中身に注意してください。
 - 一時辞書と対応表はメモリ上にだけあり、ファイルには書きません。ウィンドウを閉じると失われ、**別のウィンドウ・プロセスからは復元できません**（未復元のまま閉じようとすると確認が出ます）。
 - 入力文章・変換結果・履歴はファイルに保存しません。
 - コピー時は Windows のクリップボード履歴（Win+V）・クラウド同期・監視ツールの対象外にするよう要求します（`CanIncludeInClipboardHistory` などの形式）。他のアプリで先にコピーした原文や、対応していないクリップボード管理ツールは制御できません。`クリップボード消去` で現在の内容は消せますが、履歴に残ったものは Win+V から削除してください。
 - これは可逆的な仮名化の補助ツールで、完全な匿名化を保証するものではありません。名称を消しても文脈（事業内容・数値・役職など）から特定される可能性があります。組織の規程で外部 AI への入力が禁止されている情報は、マスキングしても送らないでください。
 
-**テスト**（GUI を表示せずに実行されます。`-Gui` はフォームを非表示のまま組み立てて内部処理を確認します）
+#### テスト
+
+GUI を表示せずに実行されます。`-Gui` はフォームを非表示のまま組み立てて内部処理を確認します。
 
 ```powershell
 pwsh -NoProfile -STA -File .\powershell\TextMask\tests\Test-TextMask.ps1 -Gui
@@ -342,6 +363,8 @@ pwsh -NoProfile -STA -File .\powershell\TextMask\tests\Test-TextMask.ps1 -Gui
 
 モジュール構成: `TextMask/MaskEngine.psm1`（置換・復元・検証）、`Dictionary.psm1`（辞書 JSON・設定）、
 `Clipboard.psm1`（クリップボード）、`GUI.psm1`（WinForms）。
+
+---
 
 ### `Start-InstallmentSimulator.ps1`
 
@@ -354,7 +377,7 @@ Start-InstallmentSimulator.ps1 -CsvPath .\x.csv   # 最初に開く明細を指�
 Start-InstallmentSimulator.ps1 -Detach            # 別プロセスで開き、すぐプロンプトに戻る
 ```
 
-**使い方**
+#### 使い方
 
 0. 毎月の明細 CSV を `data/installment-simulator/statements/` に `yyyyMM.csv` の名前で置き、上部の `明細` リストで試算する月を選ぶ
    - 月を切り替えても、それぞれの月で選んだ回数と選択中（✓）はウィンドウを閉じるまで覚えている（ファイルには保存しない）
@@ -380,14 +403,18 @@ Start-InstallmentSimulator.ps1 -Detach            # 別プロセスで開き、�
 - 利用先にマウスを乗せると備考（外貨の金額・レートなど）が出ます。
 - 明細の合計が CSV の合計行と一致しないときは、画面下に警告を出します。
 
-**計算方法**（元利均等方式。三井住友カード系の「100 円あたりの分割払い手数料」表と同じ値になります）
+#### 計算方法
+
+元利均等方式。三井住友カード系の「100 円あたりの分割払い手数料」表と同じ値になります。
 
 - 月利 r = 年率 / 12、100 円あたり手数料 = (n·r / (1 − (1+r)^−n) − 1) × 100（小数第 2 位）。15% なら 3 回 2.51 円、6 回 4.42 円、12 回 8.31 円、24 回 16.37 円
 - 手数料 = 利用金額 × 係数 / 100（円未満切り捨て）。各回 = (利用金額 + 手数料) / n の切り捨てで、端数は初回に加算
 - 1・2 回払いは手数料なし。分割にした明細は今月の請求から 1 回目が始まる（あとから分割を想定）
 - 概算です。実際の手数料・各回の金額はカード会社の確定額に従います。
 
-**明細 CSV の形式**（Amazon Mastercard などの明細ダウンロード。Shift_JIS、数字は全角でも可）
+#### 明細 CSV の形式
+
+Amazon Mastercard などの明細ダウンロード。Shift_JIS、数字は全角でも可です。
 
 ```
 氏名,カード番号（マスク済み）,カード名
@@ -398,7 +425,7 @@ Start-InstallmentSimulator.ps1 -Detach            # 別プロセスで開き、�
 
 ファイル名の先頭 `yyyyMM` を請求月として使います（例: `202611.csv` → 2026 年 11 月請求）。1 行目の氏名は読み込みません。
 
-**データの置き場所**
+#### データの置き場所
 
 ```
 data/installment-simulator/
@@ -412,7 +439,9 @@ data/installment-simulator/
 
 `settings.json` の `counts` を編集すると支払回数の選択肢を変えられます（1 は常に含まれます）。
 
-**テスト**（架空の明細を一時ディレクトリに書いて検証します。`-Gui` はフォームを表示せずに組み立てて再計算・グラフ描画を確認します）
+#### テスト
+
+架空の明細を一時ディレクトリに書いて検証します。`-Gui` はフォームを表示せずに組み立てて再計算・グラフ描画を確認します。
 
 ```powershell
 pwsh -NoProfile -STA -File .\powershell\InstallmentSimulator\tests\Test-InstallmentSimulator.ps1 -Gui
@@ -420,6 +449,8 @@ pwsh -NoProfile -STA -File .\powershell\InstallmentSimulator\tests\Test-Installm
 
 モジュール構成: `InstallmentSimulator/Statement.psm1`（CSV 読み込み）、`Calculator.psm1`（手数料・月別スケジュール）、
 `GUI.psm1`（WinForms）。
+
+---
 
 ### `StorageBar.ahk`
 
@@ -444,6 +475,8 @@ C: 123 / 456 GB   空き 333 GB
 閾値や 1 ドライブ分の幅（`BLOCK_W`）はスクリプト冒頭の「設定」セクションで
 変更できます。文字が切れる・余りすぎる場合はここを調整してください。
 
+---
+
 ### `IMEKeySwitch.ahk`
 
 AutoHotkey v2 のスクリプトです。日本語キーボードの変換 / 無変換キーを、
@@ -454,6 +487,8 @@ IME のトグルではなく ON / OFF 専用キーとして割り当て直しま
 - トレイメニューからスタートアップ登録（`IMEKeySwitch.lnk`）が可能
 
 現在の IME 状態を気にせず押せるので、変換ミスを戻す操作が減ります。
+
+---
 
 ### `DisplayOff.ahk`
 
@@ -473,6 +508,8 @@ AutoHotkey v2 のスクリプトです。`Win + Backspace` で画面を暗転し
 > - バックライトは完全には消えません（明るさ 0 で黒を表示しているだけ）。省電力の効果は本当の消灯より小さくなります。
 > - 電源設定の「画面をオフにする」時間が来ると、Windows が本当に消灯してロックします。長く離れるときはこれで問題ありません。
 > - 明るさを変えられるのは内蔵ディスプレイだけです。外部モニターは黒い画面になるだけです。
+
+---
 
 ### `PowerPointFastScroll.ahk`
 
@@ -494,6 +531,8 @@ AutoHotkey v2 のスクリプトです。PowerPoint の編集画面（`PPTFrameC
 倍率・加速・デッドゾーン・固定モードの判定時間などはスクリプト冒頭の `cfg` で変更できます。
 変更したら `Ctrl + Alt + R` で反映してください。
 
+---
+
 ### `Convert-PngToJpg.ps1` / `Convert-PngToEps.ps1`
 
 カレントディレクトリにある `.png` をすべて JPG / EPS に変換します。
@@ -502,6 +541,8 @@ JPG 版は透過部分を白で塗りつぶします（そのままだと黒く�
 変換に失敗したファイルは赤で表示し、1 件でも失敗すると終了コード 1 を返します。
 
 > ImageMagick（`magick` コマンド）が PATH にある必要があります。
+
+---
 
 ## 補足
 
