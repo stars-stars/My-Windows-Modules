@@ -33,6 +33,12 @@ $script:Colors = @{
     Grid      = [System.Drawing.Color]::FromArgb(225, 225, 225)
     Axis      = [System.Drawing.Color]::FromArgb(120, 120, 120)
     Warning   = [System.Drawing.Color]::FromArgb(190, 40, 40)
+    Danger       = [System.Drawing.Color]::FromArgb(205, 45, 45)     # リセットボタン（赤）
+    DangerHover  = [System.Drawing.Color]::FromArgb(175, 35, 35)
+    DangerDown   = [System.Drawing.Color]::FromArgb(140, 25, 25)
+    Light        = [System.Drawing.Color]::FromArgb(255, 240, 170)   # すべてに適用（薄い黄色・試し）
+    LightHover   = [System.Drawing.Color]::FromArgb(255, 230, 130)
+    LightDown    = [System.Drawing.Color]::FromArgb(225, 195, 90)
 }
 
 $script:DefaultSettings = [ordered]@{
@@ -176,6 +182,25 @@ function New-Button {
         $b.add_Click({ param($sender, $e) Invoke-UiSafe $sender.Tag })
     }
     return $b
+}
+
+function Set-ButtonColor {
+    <#
+    .SYNOPSIS
+        ボタンを色付きにする。Danger = 赤（白文字）、Light = 薄い黄色（黒文字）。
+        標準のボタンは視覚スタイルで背景色が出ないことがあるので Flat にする。
+    #>
+    param(
+        [Parameter(Mandatory)][System.Windows.Forms.Button]$Button,
+        [Parameter(Mandatory)][ValidateSet('Danger', 'Light')][string]$Kind
+    )
+    $Button.FlatStyle = 'Flat'
+    $Button.UseVisualStyleBackColor = $false
+    $Button.BackColor = $script:Colors[$Kind]
+    $Button.ForeColor = if ($Kind -eq 'Light') { [System.Drawing.SystemColors]::ControlText } else { [System.Drawing.Color]::White }
+    $Button.FlatAppearance.BorderColor = $script:Colors[$Kind + 'Down']
+    $Button.FlatAppearance.MouseOverBackColor = $script:Colors[$Kind + 'Hover']
+    $Button.FlatAppearance.MouseDownBackColor = $script:Colors[$Kind + 'Down']
 }
 
 function Set-DoubleBuffered {
@@ -1006,9 +1031,11 @@ function New-InstallmentSimulatorForm {
         Set-RowCount -Count $n
     }
     $tip.SetToolTip($applyAll, '変更できる明細すべてに適用します。')
+    Set-ButtonColor -Button $applyAll -Kind Light
     $bar.Controls.Add($applyAll)
     $reset = New-Button 'リセット' { Set-RowCount -Count 1 }
     $tip.SetToolTip($reset, 'すべての明細を 1 回払いに戻します（選択中の ✓ はそのまま）。')
+    Set-ButtonColor -Button $reset -Kind Danger
     $bar.Controls.Add($reset)
 
     $bar.Controls.Add((New-Label '　｜　'))
